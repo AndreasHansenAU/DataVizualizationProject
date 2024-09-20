@@ -4,15 +4,19 @@
 # Data sources
 
 ## Global terrorism data
+
 https://www.kaggle.com/datasets/START-UMD/gtd
 
 
-## us crime by state
-us\_state\_crime: https://corgis-edu.github.io/corgis/csv/state_crime/
+## Country data
 
+https://databank.worldbank.org/reports.aspx?source=2
 
-## danish crime
-https://www.statbank.dk/20059
+All countries.
+1960-2023.
+Population, total.
+GDP per Capita (current UD\$).
+Unemployment, total (\% of total labor force) (national estimate).
+Political Stability: Estimate.
+Control of Corruption: Estimate.
 
-
-## where is remanining data from??
