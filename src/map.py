@@ -63,7 +63,7 @@ def update_graph(year_value):
             oceancolor="lightblue",  # Set ocean color
             showframe=False,  # Hide the frame around the map
             coastlinecolor="black",  # Set coastline color
-        )
+        ),
     )
 
     return fig
@@ -75,13 +75,37 @@ def update_heatmap(year_value):
     # Filter data based on selected year
     dff = df[df['iyear'] == year_value]
 
+    # Plotly3 color scale
+    color_scale = [
+        [0.0,  "rgba(0, 0, 0, 0)"],
+        [0.01, "#0508b8"],
+        [0.3,  "#6b1cfb"],
+        [0.6,  "#dd2bfd"],
+        [1.0,  "#fec3fe"]
+    ]
+
+    # maximum scale value
+    max_density = 50
+
     # Create a scatter_geo plot, simulating a heatmap by coloring points based on density
     fig = px.density_map(dff,
                          lon="longitude",
                          lat="latitude",
                          radius=10,
-                         center=dict(lat=0, lon=0), zoom=0,
-                         map_style="open-street-map"
+                         center=dict(lat=0, lon=0), 
+                         zoom=0,
+                         map_style="open-street-map", # "satellite-streets" #"open-street-map",
+                         color_continuous_scale=color_scale,
+                         opacity=1,
+                         range_color=(0, max_density)
+    )
+
+    # Update layout to add a title to the legend
+    fig.update_layout(
+        coloraxis_colorbar=dict(
+            title="Number of attacks",  # Set the title for the colorbar (legend)
+            titleside="right",  # Position the title on the right side
+        )
     )
     
     return fig
