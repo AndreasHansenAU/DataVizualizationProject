@@ -1,9 +1,12 @@
 from dash import Dash, html, dcc, Input, Output, callback
 import pandas as pd
 import plotly.express as px
+import webbrowser
+from threading import Timer
+import os
+
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
 terror_encoding = 'ISO-8859-1'
@@ -23,22 +26,28 @@ app.layout = html.Div([
         )
     ], style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}),
 
-    html.Div(dcc.Slider(
-        df['iyear'].min(),
-        df['iyear'].max(),
-        step=None,
+    # Use dcc.RangeSlider for selecting an interval of years
+    html.Div(dcc.RangeSlider(
         id='crossfilter-year--slider',
-        value=df['iyear'].max(),
-        marks={str(year): str(year) for year in df['iyear'].unique()}
+        min=df['iyear'].min(),
+        max=df['iyear'].max(),
+        step=None,
+        value=[2000, 2020], # default range
+        marks={str(year): str(year) for year in df['iyear'].unique()},
+        allowCross=False,  # Prevents crossing of the two handles
     ), style={'width': '49%', 'padding': '0px 20px 20px 20px'})
 ])
 
 @callback(
     Output('crossfilter-indicator-scatter', 'figure'),
     Input('crossfilter-year--slider', 'value'))
-def update_graph(year_value):
-    dff = df[df['iyear'] == year_value]
+def update_graph(year_range):
+    # subset dataframe by year range
+    year_lower = year_range[0]
+    year_upper = year_range[1]
+    dff = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
 
+    # plot scatter world map
     fig = px.scatter_geo(dff,
                          lon="longitude",
                          lat="latitude",
@@ -71,9 +80,11 @@ def update_graph(year_value):
 @callback(
     Output('crossfilter-indicator-heatmap', 'figure'),
     Input('crossfilter-year--slider', 'value'))
-def update_heatmap(year_value):
-    # Filter data based on selected year
-    dff = df[df['iyear'] == year_value]
+def update_heatmap(year_range):
+    # subset dataframe by year range
+    year_lower = year_range[0]
+    year_upper = year_range[1]
+    dff = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
 
     # Plotly3 color scale
     color_scale = [
@@ -109,6 +120,7 @@ def update_heatmap(year_value):
     )
     
     return fig
+
 
 if __name__ == '__main__':
     app.run(debug=True)
