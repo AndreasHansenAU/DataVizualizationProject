@@ -5,7 +5,7 @@ import webbrowser
 from threading import Timer
 import os
 
-
+port=8050
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
@@ -122,5 +122,11 @@ def update_heatmap(year_range):
     return fig
 
 
+def open_browser():
+    if not os.environ.get("WERKZEUG_RUN_MAIN"):
+	    webbrowser.open_new("http://localhost:{}".format(port))
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    Timer(1, open_browser).start()
+    app.run(debug=True, port=port)
