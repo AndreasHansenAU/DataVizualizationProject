@@ -1,9 +1,10 @@
+from utils.Jitter import add_jitter
 from dash import Dash, html, dcc, Input, Output, callback
 import pandas as pd
 import plotly.express as px
 import webbrowser
 from threading import Timer
-import os
+
 
 port=8050
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -46,11 +47,12 @@ def update_graph(year_range):
     year_lower = year_range[0]
     year_upper = year_range[1]
     dff = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
+    dff = add_jitter(dff, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
 
     # plot scatter world map
     fig = px.scatter_geo(dff,
-                         lon="longitude",
-                         lat="latitude",
+                         lat="latitude_jitter",
+                         lon="longitude_jitter",
                          #text="country_txt",
                          hover_name="country_txt",
                          hover_data={"imonth": True, "iday": True, "gname": True}
@@ -85,6 +87,7 @@ def update_heatmap(year_range):
     year_lower = year_range[0]
     year_upper = year_range[1]
     dff = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
+    dff = add_jitter(dff, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
 
     # Plotly3 color scale
     color_scale = [
@@ -100,8 +103,8 @@ def update_heatmap(year_range):
 
     # Create a scatter_geo plot, simulating a heatmap by coloring points based on density
     fig = px.density_map(dff,
-                         lon="longitude",
-                         lat="latitude",
+                         lat="latitude_jitter",
+                         lon="longitude_jitter",
                          radius=10,
                          center=dict(lat=0, lon=0), 
                          zoom=0,
