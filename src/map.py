@@ -45,43 +45,70 @@ app.layout = html.Div([
         dcc.Graph(
             id='map-scatter',
             hoverData={'points': [{'customdata': 'Denmark'}]}
-        )
-    ], style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}),
+        )], 
+        style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}
+    ),
 
     html.Div([
         dcc.Graph(
             id='map-heatmap',
             hoverData={'points': [{'customdata': 'Denmark'}]}
-        )
-    ], style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}),
+        )], 
+        style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}
+    ),
 
     # use dcc.RangeSlider for selecting an interval of years
-    html.Div(dcc.RangeSlider(
-        id='crossfilter-year-slider',
-        min=df_terror['iyear'].min(),
-        max=df_terror['iyear'].max(),
-        step=None,
-        value=[2015, 2020], # default range
-        marks={str(year): str(year) for year in df_terror['iyear'].unique()},
-        allowCross=False,  # Prevents crossing of the two handles
-    ), style={'width': '49%', 'padding': '0px 20px 20px 20px'})
+    html.Div(
+        dcc.RangeSlider(
+            id='crossfilter-year-slider',
+            min=df_terror['iyear'].min(),
+            max=df_terror['iyear'].max(),
+            step=None,
+            value=[2015, 2020], # default range
+            marks={str(year): str(year) for year in df_terror['iyear'].unique()},
+            allowCross=False,  # Prevents crossing of the two handles
+        ), 
+        style={'width': '49%', 'padding': '0px 20px 20px 20px'}
+    ),
+
+    # set dropdown to choose attacktype
+    # can choose multiple types and can't clear value to being empty
+    html.Div(
+        dcc.Dropdown(
+            id='crossfilter-attacktype-dropdown',
+            options=list(df_terror['attacktype1_txt'].unique()),
+            value=None,
+            placeholder='Show All Attack Types',
+            multi=True,
+            clearable=False,
+            maxHeight=200,
+            optionHeight=35
+        ),
+        style={'width': '30%', 'padding': '0px 20px 20px 20px'}
+    )
 ])
 
 
 # filter data but memoize with cache for rapid access
 @cache.memoize()
-def filter_map_data(df, year_range):
+def filter_map_data(df, year_range, attacktype):
     year_lower, year_upper = year_range
+
     df_filtered = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
+
+    if attacktype is not None:
+        df_filtered = df_filtered[df_filtered['attacktype1_txt'].isin(attacktype)]
+
     return df_filtered
 
 
 @callback(
     Output('map-scatter', 'figure'),
-    Input('crossfilter-year-slider', 'value'))
-def update_graph(year_range):
+    Input('crossfilter-year-slider', 'value'),
+    Input('crossfilter-attacktype-dropdown', 'value'))
+def update_graph(year_range, attacktype):
     # get cached data
-    dff = filter_map_data(df_terror, year_range)
+    dff = filter_map_data(df_terror, year_range, attacktype)
 
     # plot scatter world map
     fig = px.scatter_geo(dff,
@@ -116,10 +143,11 @@ def update_graph(year_range):
 
 @callback(
     Output('map-heatmap', 'figure'),
-    Input('crossfilter-year-slider', 'value'))
-def update_heatmap(year_range):
+    Input('crossfilter-year-slider', 'value'),
+    Input('crossfilter-attacktype-dropdown', 'value'))
+def update_heatmap(year_range, attacktype):
     # get cached data
-    dff = filter_map_data(df_terror, year_range)
+    dff = filter_map_data(df_terror, year_range, attacktype)
 
     # Plotly3 color scale
     color_scale = [
