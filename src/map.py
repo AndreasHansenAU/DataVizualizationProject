@@ -1,18 +1,45 @@
 from utils.Jitter import add_jitter
 from dash import Dash, html, dcc, Input, Output, callback
+from flask_caching import Cache
 import pandas as pd
 import plotly.express as px
 import webbrowser
 from threading import Timer
+import os
 
 
+# setup app
 port=8050
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
-terror_encoding = 'ISO-8859-1'
-df = pd.read_csv("src/data/globalterrorism_2020.csv", encoding=terror_encoding, low_memory=False)
 
+# setup cache
+cache = Cache(app.server, config={
+    'DEBUG':True,
+    'CACHE_TYPE':'SimpleCache',
+    'CACHE_DEFAULT_TIMEOUT':300
+})
+#cache = Cache(app.server, config={
+#    'DEBUG':True,
+#    'CACHE_TYPE':'FileSystemCache',
+#    'CACHE_DIR':'cache-directory',
+#    'CACHE_DEFAULT_TIMEOUT':300
+#})
+
+
+# setup data
+@cache.memoize()
+def read_data_terror():
+    terror_encoding = 'ISO-8859-1'
+    df = pd.read_csv("src/data/globalterrorism_2020.csv", encoding=terror_encoding, low_memory=False)
+    df_jittered = add_jitter(df, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
+    return df_jittered
+
+df = read_data_terror()
+
+
+# setup layout
 app.layout = html.Div([
     html.Div([
         dcc.Graph(
@@ -27,7 +54,7 @@ app.layout = html.Div([
         )
     ], style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}),
 
-    # Use dcc.RangeSlider for selecting an interval of years
+    # use dcc.RangeSlider for selecting an interval of years
     html.Div(dcc.RangeSlider(
         id='crossfilter-year--slider',
         min=df['iyear'].min(),
@@ -39,15 +66,21 @@ app.layout = html.Div([
     ), style={'width': '49%', 'padding': '0px 20px 20px 20px'})
 ])
 
+
+# filter data but memoize with cache for rapid access
+@cache.memoize()
+def filter_map_data(df, year_range):
+    year_lower, year_upper = year_range
+    df_filtered = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
+    return df_filtered
+
+
 @callback(
     Output('crossfilter-indicator-scatter', 'figure'),
     Input('crossfilter-year--slider', 'value'))
 def update_graph(year_range):
-    # subset dataframe by year range
-    year_lower = year_range[0]
-    year_upper = year_range[1]
-    dff = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
-    dff = add_jitter(dff, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
+    # get cached data
+    dff = filter_map_data(df, year_range)
 
     # plot scatter world map
     fig = px.scatter_geo(dff,
@@ -79,15 +112,13 @@ def update_graph(year_range):
 
     return fig
 
+
 @callback(
     Output('crossfilter-indicator-heatmap', 'figure'),
     Input('crossfilter-year--slider', 'value'))
 def update_heatmap(year_range):
-    # subset dataframe by year range
-    year_lower = year_range[0]
-    year_upper = year_range[1]
-    dff = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
-    dff = add_jitter(dff, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
+    # get cached data
+    dff = filter_map_data(df, year_range)
 
     # Plotly3 color scale
     color_scale = [

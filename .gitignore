@@ -1,2 +1,4 @@
 **/data
 **/deprecated
+/cache-directory
+/src/utils/__pycache__
