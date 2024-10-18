@@ -36,32 +36,33 @@ def read_data_terror():
     df_jittered = add_jitter(df, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
     return df_jittered
 
-df = read_data_terror()
+df_terror = read_data_terror()
 
 
 # setup layout
 app.layout = html.Div([
     html.Div([
         dcc.Graph(
-            id='crossfilter-indicator-scatter',
+            id='map-scatter',
             hoverData={'points': [{'customdata': 'Denmark'}]}
         )
     ], style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}),
 
     html.Div([
         dcc.Graph(
-            id='crossfilter-indicator-heatmap',
+            id='map-heatmap',
+            hoverData={'points': [{'customdata': 'Denmark'}]}
         )
     ], style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}),
 
     # use dcc.RangeSlider for selecting an interval of years
     html.Div(dcc.RangeSlider(
-        id='crossfilter-year--slider',
-        min=df['iyear'].min(),
-        max=df['iyear'].max(),
+        id='crossfilter-year-slider',
+        min=df_terror['iyear'].min(),
+        max=df_terror['iyear'].max(),
         step=None,
-        value=[2000, 2020], # default range
-        marks={str(year): str(year) for year in df['iyear'].unique()},
+        value=[2015, 2020], # default range
+        marks={str(year): str(year) for year in df_terror['iyear'].unique()},
         allowCross=False,  # Prevents crossing of the two handles
     ), style={'width': '49%', 'padding': '0px 20px 20px 20px'})
 ])
@@ -76,11 +77,11 @@ def filter_map_data(df, year_range):
 
 
 @callback(
-    Output('crossfilter-indicator-scatter', 'figure'),
-    Input('crossfilter-year--slider', 'value'))
+    Output('map-scatter', 'figure'),
+    Input('crossfilter-year-slider', 'value'))
 def update_graph(year_range):
     # get cached data
-    dff = filter_map_data(df, year_range)
+    dff = filter_map_data(df_terror, year_range)
 
     # plot scatter world map
     fig = px.scatter_geo(dff,
@@ -114,11 +115,11 @@ def update_graph(year_range):
 
 
 @callback(
-    Output('crossfilter-indicator-heatmap', 'figure'),
-    Input('crossfilter-year--slider', 'value'))
+    Output('map-heatmap', 'figure'),
+    Input('crossfilter-year-slider', 'value'))
 def update_heatmap(year_range):
     # get cached data
-    dff = filter_map_data(df, year_range)
+    dff = filter_map_data(df_terror, year_range)
 
     # Plotly3 color scale
     color_scale = [
@@ -144,6 +145,15 @@ def update_heatmap(year_range):
                          opacity=1,
                          range_color=(0, max_density)
     )
+
+    # update hover box
+    fig.update_traces(customdata=dff[['country_txt', 'iday', 'imonth', 'iyear', 'gname', 
+                                      'attacktype1_txt', 'weaptype1_txt', 'targtype1_txt']],
+                      hovertemplate="<b>%{customdata[0]} %{customdata[1]}-%{customdata[2]}-%{customdata[3]}</b><br>"
+                                    "Group: %{customdata[4]}<br>"
+                                    "Primary attack type: %{customdata[5]}<br>"
+                                    "Primary weapon type used: %{customdata[6]}<br>"
+                                    "Primary target type: %{customdata[7]}<br>")
 
     # Update layout to add a title to the legend
     fig.update_layout(
