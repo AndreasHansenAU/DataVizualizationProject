@@ -49,6 +49,13 @@ app.layout = html.Div([
         style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}
     ),
 
+    html.Div([
+         dcc.Graph(
+              id='chart-weapon-distribution'
+         )],
+         style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}
+    ),
+
     # use dcc.RangeSlider for selecting an interval of years
     html.Div(
         dcc.RangeSlider(
@@ -98,7 +105,7 @@ def filter_map_data(df, year_range, attacktype):
     Output('map-heatmap', 'figure'),
     Input('crossfilter-year-slider', 'value'),
     Input('crossfilter-attacktype-dropdown', 'value'))
-def update_heatmap(year_range, attacktype):
+def update_map_heatmap(year_range, attacktype):
     # get cached data
     dff = filter_map_data(df_terror, year_range, attacktype)
 
@@ -142,6 +149,54 @@ def update_heatmap(year_range, attacktype):
             title="Number of attacks",  # Set the title for the colorbar (legend)
             titleside="right",  # Position the title on the right side
         )
+    )
+    
+    return fig
+
+
+@callback(
+    Output('chart-weapon-distribution', 'figure'),
+    Input('crossfilter-year-slider', 'value'),
+    Input('crossfilter-attacktype-dropdown', 'value'))
+def update_chart_weapon_distribution(year_range, attacktype):
+    # get cached data
+    dff = filter_map_data(df_terror, year_range, attacktype)
+    # count number of attacks per primary weapon type
+    dff_grouped = dff.groupby(['weaptype1_txt'])['weaptype1_txt'].count()
+    dff_grouped = dff_grouped.to_frame(name='count').reset_index()
+    # calculate percentage and round to 2 decimals
+    dff_grouped['percentage'] = dff_grouped['count']/dff_grouped['count'].sum()
+    dff_grouped['percentage'] = (100*dff_grouped['percentage']).round(1)
+    # change long Vehicle string to Vehicle
+    dff_grouped.loc[dff_grouped['weaptype1_txt'].str.contains('Vehicle'), 'weaptype1_txt'] = 'Vehicle'
+    # add year range ex. 2015-2020 or just 2020 for use in info box
+    if year_range[1]-year_range[0]==0:
+        dff_grouped['year_range'] = str(year_range[0])
+    else:
+        dff_grouped['year_range'] = str(year_range[0])+'-'+str(year_range[1])
+
+    # sort by ascending count
+    dff_sorted = dff_grouped.sort_values(by=['count'], ascending=True)
+
+    fig = px.bar(dff_sorted, 
+                 x='count', 
+                 y='weaptype1_txt', 
+                 orientation='h',
+                 text='count',
+                 text_auto=True
+    )
+
+    fig.update_traces(customdata=dff_sorted[['weaptype1_txt', 'count', 'percentage', 'year_range']],
+                      hovertemplate=(
+                          "%{customdata[0]} was the primary weapon type<br>"
+                          "in %{customdata[2]}% of attacks in %{customdata[3]}.")
+    )
+
+    fig.update_layout(
+        title='Number of attacks for each primary weapon type',
+        yaxis_title='',
+        xaxis_title='Number of attacks',
+        title_x=0.5
     )
     
     return fig
