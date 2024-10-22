@@ -43,14 +43,6 @@ df_terror = read_data_terror()
 app.layout = html.Div([
     html.Div([
         dcc.Graph(
-            id='map-scatter',
-            hoverData={'points': [{'customdata': 'Denmark'}]}
-        )], 
-        style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}
-    ),
-
-    html.Div([
-        dcc.Graph(
             id='map-heatmap',
             hoverData={'points': [{'customdata': 'Denmark'}]}
         )], 
@@ -101,46 +93,6 @@ def filter_map_data(df, year_range, attacktype):
             df_filtered = df_filtered[df_filtered['attacktype1_txt'].isin(attacktype)]
 
     return df_filtered
-
-
-@callback(
-    Output('map-scatter', 'figure'),
-    Input('crossfilter-year-slider', 'value'),
-    Input('crossfilter-attacktype-dropdown', 'value'))
-def update_graph(year_range, attacktype):
-    # get cached data
-    dff = filter_map_data(df_terror, year_range, attacktype)
-
-    # plot scatter world map
-    fig = px.scatter_geo(dff,
-                         lat="latitude_jitter",
-                         lon="longitude_jitter",
-                         #text="country_txt",
-                         hover_name="country_txt",
-                         hover_data={"imonth": True, "iday": True, "gname": True}
-    )
-    
-    fig.update_traces(customdata=dff[['imonth', 'iday', 'gname']],
-                      hovertemplate="<b>%{hovertext}</b><br>"
-                                    "Month: %{customdata[0]}<br>"
-                                    "Day: %{customdata[1]}<br>"
-                                    "Group: %{customdata[2]}")
-    
-    fig.update_layout(
-        geo=dict(
-            showland=True,  # Show land
-            landcolor="lightgray",  # Set land color
-            showcountries=True,  # Show country borders
-            countrycolor="black",  # Set country border color
-            showocean=True,  # Show ocean
-            oceancolor="lightblue",  # Set ocean color
-            showframe=False,  # Hide the frame around the map
-            coastlinecolor="black",  # Set coastline color
-        ),
-    )
-
-    return fig
-
 
 @callback(
     Output('map-heatmap', 'figure'),
