@@ -97,7 +97,8 @@ def filter_map_data(df, year_range, attacktype):
     df_filtered = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
 
     if attacktype is not None:
-        df_filtered = df_filtered[df_filtered['attacktype1_txt'].isin(attacktype)]
+        if len(attacktype) > 0:
+            df_filtered = df_filtered[df_filtered['attacktype1_txt'].isin(attacktype)]
 
     return df_filtered
 
