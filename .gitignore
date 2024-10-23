@@ -2,3 +2,4 @@
 **/deprecated
 /cache-directory
 /src/utils/__pycache__
+*.pyc
