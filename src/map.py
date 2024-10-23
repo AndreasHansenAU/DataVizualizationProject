@@ -91,30 +91,76 @@ app.layout = html.Div([
             optionHeight=35
         ),
         style={'width': '30%', 'padding': '0px 20px 20px 20px'}
+    ),
+
+    # set dropdown to choose target type
+    # can choose multiple types and can't clear value to being empty
+    html.Div(
+        dcc.Dropdown(
+            id='crossfilter-targettype-dropdown',
+            options=list(df_terror['targtype1_txt'].unique()),
+            value=None,
+            placeholder='Show All Target Types',
+            multi=True,
+            clearable=False,
+            maxHeight=200,
+            optionHeight=35
+        ),
+        style={'width': '30%', 'padding': '0px 20px 20px 20px'}
+    ),
+
+    # set dropdown to choose group
+    # can choose multiple types and can't clear value to being empty
+    html.Div(
+        dcc.Dropdown(
+            id='crossfilter-group-dropdown',
+            options=list(df_terror['gname'].unique()),
+            value=None,
+            placeholder='Show All Terror Groups',
+            multi=True,
+            clearable=False,
+            maxHeight=200,
+            optionHeight=35
+        ),
+        style={'width': '30%', 'padding': '0px 20px 20px 20px'}
     )
 ])
 
 
 # filter data but memoize with cache for rapid access
 @cache.memoize()
-def filter_map_data(df, year_range, attacktype):
+def filter_data(df, year_range, attacktype, targettype, group):
     year_lower, year_upper = year_range
 
+    # filter years
     df_filtered = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
 
+    # filter attack
     if attacktype is not None:
         if len(attacktype) > 0:
             df_filtered = df_filtered[df_filtered['attacktype1_txt'].isin(attacktype)]
+    
+    # filter target
+    if targettype is not None:
+        if len(targettype) > 0:
+            df_filtered = df_filtered[df_filtered['targtype1_txt'].isin(targettype)]
 
+    # filter group
+    if group is not None:
+        if len(group) > 0:
+            df_filtered = df_filtered[df_filtered['gname'].isin(group)]
+    
     return df_filtered
 
 @callback(
     Output('map-heatmap', 'figure'),
     Input('crossfilter-year-slider', 'value'),
-    Input('crossfilter-attacktype-dropdown', 'value'))
-def update_map_heatmap(year_range, attacktype):
+    Input('crossfilter-attacktype-dropdown', 'value'),
+    Input('crossfilter-targettype-dropdown', 'value'),
+    Input('crossfilter-group-dropdown', 'value'))
+def update_map_heatmap(year_range, attacktype, targettype, group):
     # get cached data
-    dff = filter_map_data(df_terror, year_range, attacktype)
+    dff = filter_data(df_terror, year_range, attacktype, targettype, group)
 
     # Plotly3 color scale
     color_scale = [
@@ -277,10 +323,12 @@ def update_info_box(clickData):
 @callback(
     Output('chart-weapon-distribution', 'figure'),
     Input('crossfilter-year-slider', 'value'),
-    Input('crossfilter-attacktype-dropdown', 'value'))
-def update_chart_weapon_distribution(year_range, attacktype):
+    Input('crossfilter-attacktype-dropdown', 'value'),
+    Input('crossfilter-targettype-dropdown', 'value'),
+    Input('crossfilter-group-dropdown', 'value'))
+def update_chart_weapon_distribution(year_range, attacktype, targettype, group):
     # get cached data
-    dff = filter_map_data(df_terror, year_range, attacktype)
+    dff = filter_data(df_terror, year_range, attacktype, targettype, group)
     # count number of attacks per primary weapon type
     dff_grouped = dff.groupby(['weaptype1_txt'])['weaptype1_txt'].count()
     dff_grouped = dff_grouped.to_frame(name='count').reset_index()
@@ -309,11 +357,11 @@ def update_chart_weapon_distribution(year_range, attacktype):
     fig.update_traces(customdata=dff_sorted[['weaptype1_txt', 'count', 'percentage', 'year_range']],
                       hovertemplate=(
                           "%{customdata[0]} was the primary weapon type<br>"
-                          "in %{customdata[2]}% of attacks in %{customdata[3]}.")
+                          "in %{customdata[2]}% of filtered attacks in %{customdata[3]}.")
     )
 
     fig.update_layout(
-        title='Number of attacks for each primary weapon type',
+        title='Which weapons are used most frequently?',
         yaxis_title='',
         xaxis_title='Number of attacks',
         title_x=0.5
