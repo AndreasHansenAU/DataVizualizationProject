@@ -1,5 +1,6 @@
 from utils.Jitter import add_jitter
 from dash import Dash, html, dcc, Input, Output, callback
+import dash_core_components as dcc
 from flask_caching import Cache
 import pandas as pd
 import plotly.express as px
@@ -108,83 +109,90 @@ def update_group_dropdown(year_range):
 ###################
 # setup layout
 app.layout = html.Div([
+    # Slider and Dropdown on the left side, above the heatmap
     html.Div([
-        dcc.Graph(
-            id='map-heatmap',
-            hoverData=None,
-            clickData=None
-        )], 
-        style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}
-    ),
+        html.Div([
+            dcc.RangeSlider(
+                id='crossfilter-year-slider',
+                min=df_terror['iyear'].min(),
+                max=df_terror['iyear'].max(),
+                step=None,
+                value=[2015, 2020],  # default range
+                marks={str(year): str(year) if year % 5 == 0 else '' for year in df_terror['iyear'].unique()},
+                allowCross=False  # Prevents crossing of the two handles
+            )
+        ], style={'width': '86%', 'padding': '20px', 'margin-left': '-25px'}),
 
-    html.Div([
-        html.H4("Selected Attack Information", id="info-title"),
-        html.Div(id='info-box', style={'padding': '10px', 'border': '1px solid black', 'height': '200px'})
-    ],
-        style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '0 20'}
-    ),
-
-    html.Div([
-         dcc.Graph(
-              id='chart-weapon-distribution'
-         )],
-         style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}
-    ),
-
-    # use dcc.RangeSlider for selecting an interval of years
-    html.Div(
-        dcc.RangeSlider(
-            id='crossfilter-year-slider',
-            min=df_terror['iyear'].min(),
-            max=df_terror['iyear'].max(),
-            step=None,
-            value=[2015, 2020], # default range
-            marks={str(year): str(year) for year in df_terror['iyear'].unique()},
-            allowCross=False,  # Prevents crossing of the two handles
-        ), 
-        style={'width': '49%', 'padding': '0px 20px 20px 20px'}
-    ),
-
-    # set dropdown to choose attacktype
-    # can choose multiple types and can't clear value to being empty
-    html.Div(
-        dcc.Dropdown(
-            id='crossfilter-attacktype-dropdown',
-            options=list(df_terror['attacktype1_txt'].unique()),
-            value=None,
-            placeholder='Show All Attack Types',
-            multi=True,
-            clearable=False,
-            maxHeight=200,
-            optionHeight=35
+        html.Div(
+            dcc.Dropdown(
+                id='crossfilter-attacktype-dropdown',
+                options=list(df_terror['attacktype1_txt'].unique()),
+                value=None,
+                placeholder='Show All Attack Types',
+                multi=True,
+                clearable=False,
+                maxHeight=200,
+                optionHeight=35
+            ),
+            style={'width': '80%', 'padding': '20px'}
         ),
-        style={'width': '30%', 'padding': '0px 20px 20px 20px'}
-    ),
 
-    # set dropdown to choose target type
-    # can choose multiple types and can't clear value to being empty
-    html.Div(
-        dcc.Dropdown(
-            id='crossfilter-targettype-dropdown',
-            options=list(df_terror['targtype1_txt'].unique()),
-            value=None,
-            placeholder='Show All Target Types',
-            multi=True,
-            clearable=False,
-            maxHeight=200,
-            optionHeight=35
+        # set dropdown to choose target type
+        # can choose multiple types and can't clear value to being empty
+        html.Div(
+            dcc.Dropdown(
+                id='crossfilter-targettype-dropdown',
+                options=list(df_terror['targtype1_txt'].unique()),
+                value=None,
+                placeholder='Show All Target Types',
+                multi=True,
+                clearable=False,
+                maxHeight=200,
+                optionHeight=35
+            ),
+            style={'width': '80%', 'padding': '20px'}
         ),
-        style={'width': '30%', 'padding': '0px 20px 20px 20px'}
-    ),
 
-    # set dropdown to choose group
-    # can choose multiple types and can't clear value to being empty
-    html.Div(
-        id='crossfilter-group-container',
-        children=update_group_dropdown(year_range=[2015, 2020]),
-        style={'width': '30%', 'padding': '0px 20px 20px 20px'}
-    )
-])
+        # set dropdown to choose group
+        # can choose multiple types and can't clear value to being empty
+        html.Div(
+            id='crossfilter-group-container',
+            children=update_group_dropdown(year_range=[2015, 2020]),
+            style={'width': '80%', 'padding': '20px'}
+        ),
+
+        # Heatmap below the Slider and Dropdown
+        html.Div([
+            dcc.Graph(
+                id='map-heatmap',
+                hoverData=None,
+                clickData=None
+            )
+        ], style={'padding': '0', 'width': '100%', 'position': 'relative', 'left': '-50px'})  # Keep the heatmap shifted to the left
+    ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '0 10px'}),  # Reverted the padding for left container
+
+    # Right side - infobox and bar chart stacked vertically
+    html.Div([
+        # Infobox at the top with scrolling enabled
+        html.Div([
+            html.H4("Selected Attack Information", id="info-title"),
+            html.Div(id='info-box', style={
+                'padding': '10px',
+                'border': '1px solid black',
+                'height': '200px',
+                'max-height': '200px',  # Ensure the height is fixed
+                'overflow-y': 'scroll'  # Enable scrolling
+            })
+        ], style={'padding': '0 20'}),
+
+        # Bar chart below the infobox
+        html.Div([
+            dcc.Graph(
+                id='chart-weapon-distribution'
+            )
+        ], style={'padding': '0 20', 'marginTop': '20px'})  # Adjust padding and margin to space them out
+    ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top'})  # Right side remains the same width
+], style={'display': 'flex', 'flex-direction': 'row', 'margin': '0', 'padding': '0'})  # Set margin and padding to 0 for the entire layout
 
 ###################
 # update graphs
