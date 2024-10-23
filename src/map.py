@@ -8,12 +8,14 @@ from threading import Timer
 import os
 
 
-# setup app
+###################
+#  setup app
 port=8050
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
 
+###################
 # setup cache
 cache = Cache(app.server, config={
     'DEBUG':True,
@@ -28,6 +30,7 @@ cache = Cache(app.server, config={
 #})
 
 
+###################
 # setup data
 @cache.memoize()
 def read_data_terror():
@@ -38,6 +41,71 @@ def read_data_terror():
 df_terror = read_data_terror()
 
 
+###################
+# filter data
+@cache.memoize()
+def filter_years(df, year_range):
+    year_lower, year_upper = year_range
+    df_filtered = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
+    return df_filtered
+
+
+@cache.memoize()
+def filter_data(df, year_range, attacktype, targettype, group):
+    # filter years
+    df_filtered = filter_years(df, year_range)
+
+    # filter attack
+    if attacktype is not None:
+        if len(attacktype) > 0:
+            df_filtered = df_filtered[df_filtered['attacktype1_txt'].isin(attacktype)]
+    
+    # filter target
+    if targettype is not None:
+        if len(targettype) > 0:
+            df_filtered = df_filtered[df_filtered['targtype1_txt'].isin(targettype)]
+
+    # filter group
+    if group is not None:
+        if len(group) > 0:
+            df_filtered = df_filtered[df_filtered['gname'].isin(group)]
+    
+    return df_filtered
+
+
+###################
+# setup filters
+@callback(
+    Output('crossfilter-group-container', 'children'),
+    Input('crossfilter-year-slider', 'value')
+)
+def update_group_dropdown(year_range):
+    # filter years
+    df_filtered = filter_years(df_terror, year_range)
+
+    # count number of attacks for groups
+    groups_counts = df_filtered.groupby(['gname'])['gname'].count()
+
+    # sort ascending
+    groups_sorted = groups_counts.sort_values(ascending=False)
+
+    # Format required by dcc.Dropdown (label-value pairs)
+    options = [{'label': group, 'value': group} for group in groups_sorted.index]
+    
+    # Return the dcc.Dropdown component with the computed options
+    return dcc.Dropdown(
+        id='crossfilter-group-dropdown',
+        options=options,
+        value=None,
+        placeholder='Show All Terror Groups',
+        multi=True,
+        clearable=False,
+        maxHeight=200,
+        optionHeight=35
+    )
+
+
+###################
 # setup layout
 app.layout = html.Div([
     html.Div([
@@ -112,46 +180,14 @@ app.layout = html.Div([
     # set dropdown to choose group
     # can choose multiple types and can't clear value to being empty
     html.Div(
-        dcc.Dropdown(
-            id='crossfilter-group-dropdown',
-            options=list(df_terror['gname'].unique()),
-            value=None,
-            placeholder='Show All Terror Groups',
-            multi=True,
-            clearable=False,
-            maxHeight=200,
-            optionHeight=35
-        ),
+        id='crossfilter-group-container',
+        children=update_group_dropdown(year_range=[2015, 2020]),
         style={'width': '30%', 'padding': '0px 20px 20px 20px'}
     )
 ])
 
-
-# filter data but memoize with cache for rapid access
-@cache.memoize()
-def filter_data(df, year_range, attacktype, targettype, group):
-    year_lower, year_upper = year_range
-
-    # filter years
-    df_filtered = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
-
-    # filter attack
-    if attacktype is not None:
-        if len(attacktype) > 0:
-            df_filtered = df_filtered[df_filtered['attacktype1_txt'].isin(attacktype)]
-    
-    # filter target
-    if targettype is not None:
-        if len(targettype) > 0:
-            df_filtered = df_filtered[df_filtered['targtype1_txt'].isin(targettype)]
-
-    # filter group
-    if group is not None:
-        if len(group) > 0:
-            df_filtered = df_filtered[df_filtered['gname'].isin(group)]
-    
-    return df_filtered
-
+###################
+# update graphs
 @callback(
     Output('map-heatmap', 'figure'),
     Input('crossfilter-year-slider', 'value'),
@@ -161,7 +197,7 @@ def filter_data(df, year_range, attacktype, targettype, group):
 def update_map_heatmap(year_range, attacktype, targettype, group):
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, targettype, group)
-
+    
     # Plotly3 color scale
     color_scale = [
         [0.0,  "rgba(0, 0, 0, 0)"],
@@ -370,6 +406,8 @@ def update_chart_weapon_distribution(year_range, attacktype, targettype, group):
     return fig
 
 
+###################
+# deploy app
 def open_browser():
     if not os.environ.get("WERKZEUG_RUN_MAIN"):
 	    webbrowser.open_new("http://localhost:{}".format(port))
