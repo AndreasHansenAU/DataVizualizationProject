@@ -1,5 +1,5 @@
 from utils.Jitter import add_jitter
-from dash import Dash, html, dcc, Input, Output, callback
+from dash import Dash, html, dcc, Input, Output, State, callback, no_update
 import dash_core_components as dcc
 from flask_caching import Cache
 import pandas as pd
@@ -165,6 +165,7 @@ app.layout = html.Div([
 
         # Heatmap below the Slider and Dropdown
         html.Div([
+            dcc.Store(id='map-state', data={'zoom':0, 'center':dict(lat=0, lon=0)}),
             dcc.Graph(
                 id='map-heatmap',
                 hoverData=None,
@@ -196,17 +197,18 @@ app.layout = html.Div([
     ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top'})  # Right side remains the same width
 ], style={'display': 'flex', 'flex-direction': 'row', 'margin': '0', 'padding': '0'})  # Set margin and padding to 0 for the entire layout
 
+
 ###################
 # update graphs
 @callback(
     Output('map-heatmap', 'figure'),
-    Input('map-heatmap', 'relayoutData'),
+    State('map-state', 'data'), # can read state but can't be triggered by state change
     Input('map-heatmap', 'clickData'),
     Input('crossfilter-year-slider', 'value'),
     Input('crossfilter-attacktype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
     Input('crossfilter-group-dropdown', 'value'))
-def update_map_heatmap(relayoutData, clickData, year_range, attacktype, targettype, group):
+def update_map_heatmap(map_state, clickData, year_range, attacktype, targettype, group):
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, targettype, group)
     
@@ -221,16 +223,11 @@ def update_map_heatmap(relayoutData, clickData, year_range, attacktype, targetty
 
     # maximum scale value
     max_density = 50
-
+    
     # ensure that map is drawn in same state prior to update
-    center = dict(lat=0, lon=0)
-    zoom = 0
-    if relayoutData is not None:
-        center_test = relayoutData.get('map.center')
-        zoom_test = relayoutData.get('map.zoom')
-        if center_test and zoom_test:
-            center = center_test
-            zoom = zoom_test
+
+    zoom = map_state['zoom']
+    center = map_state['center']
 
     # Create a scatter_geo plot, simulating a heatmap by coloring points based on density
     fig = px.density_map(dff,
@@ -312,6 +309,18 @@ def update_map_heatmap(relayoutData, clickData, year_range, attacktype, targetty
                 )
 
     return fig
+
+
+@callback(
+    Output('map-state', 'data'),
+    Input('map-heatmap', 'relayoutData'),
+    prevent_initial_call=True
+)
+def update_map_state(relayoutData):
+    if relayoutData:
+        return {'zoom': relayoutData.get('map.zoom'), 
+                'center': relayoutData.get('map.center')}
+    return no_update
 
 
 @callback(
