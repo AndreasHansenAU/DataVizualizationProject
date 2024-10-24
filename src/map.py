@@ -8,6 +8,8 @@ import webbrowser
 from threading import Timer
 import os
 
+import plotly.graph_objects as go
+
 
 ###################
 #  setup app
@@ -198,13 +200,13 @@ app.layout = html.Div([
 # update graphs
 @callback(
     Output('map-heatmap', 'figure'),
+    Input('map-heatmap', 'relayoutData'),
+    Input('map-heatmap', 'clickData'),
     Input('crossfilter-year-slider', 'value'),
     Input('crossfilter-attacktype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
-    Input('crossfilter-group-dropdown', 'value'),
-    Input('map-heatmap', 'clickData'),
-    Input('map-heatmap', 'relayoutData'))
-def update_map_heatmap(year_range, attacktype, targettype, group, clickData, relayoutData):
+    Input('crossfilter-group-dropdown', 'value'))
+def update_map_heatmap(relayoutData, clickData, year_range, attacktype, targettype, group):
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, targettype, group)
     
@@ -272,11 +274,43 @@ def update_map_heatmap(year_range, attacktype, targettype, group, clickData, rel
         )
     )
 
-    # get related attacks to click data
+    # draw lines to related attacks
     if clickData:
+        # get current point
+        clicked_lat = clickData['points'][0]['lat']
+        clicked_lon = clickData['points'][0]['lon']
         related = clickData['points'][0]['customdata'][8]
-        print(related)
-    
+        if related:
+            # format ids of related attacks
+            related_split = related.split(', ')
+            related_split = [int(r) for r in related_split]
+            # get information from related attacks
+            related_gps = dff[dff['eventid'].isin(related_split)][['eventid', 'latitude_jitter', 'longitude_jitter']]
+            # highlight all related attacks
+            fig.add_trace(
+                go.Scattermap(
+                    mode='markers',
+                    lon=related_gps['longitude_jitter'],
+                    lat=related_gps['latitude_jitter'],
+                    hoverinfo='skip',
+                    marker=dict(color='black', opacity=0.7, size=10)
+                )
+            )
+            for idx, (_, row) in  enumerate(related_gps.iterrows()):
+                # draw lines to all related attacks
+                fig.add_trace(
+                    go.Scattermap(
+                        mode='lines',
+                        lon=[clicked_lon, row['longitude_jitter']],
+                        lat=[clicked_lat, row['latitude_jitter']],
+                        line=dict(width=2, color='black'),
+                        opacity=0.7,
+                        name=f'Related {idx+1}',
+                        hoverinfo='skip', # no hover info
+                        showlegend=False # don't show in legend
+                    ),
+                )
+
     return fig
 
 
@@ -379,8 +413,6 @@ def update_info_box(clickData):
         html.P(f"Target Type: {targtype1}"),
         html.P(summary)
     ])
-
-
 
     return info_content
 
