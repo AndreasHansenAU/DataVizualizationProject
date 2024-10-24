@@ -201,8 +201,10 @@ app.layout = html.Div([
     Input('crossfilter-year-slider', 'value'),
     Input('crossfilter-attacktype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
-    Input('crossfilter-group-dropdown', 'value'))
-def update_map_heatmap(year_range, attacktype, targettype, group):
+    Input('crossfilter-group-dropdown', 'value'),
+    Input('map-heatmap', 'clickData'),
+    Input('map-heatmap', 'relayoutData'))
+def update_map_heatmap(year_range, attacktype, targettype, group, clickData, relayoutData):
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, targettype, group)
     
@@ -218,13 +220,23 @@ def update_map_heatmap(year_range, attacktype, targettype, group):
     # maximum scale value
     max_density = 50
 
+    # ensure that map is drawn in same state prior to update
+    center = dict(lat=0, lon=0)
+    zoom = 0
+    if relayoutData is not None:
+        center_test = relayoutData.get('map.center')
+        zoom_test = relayoutData.get('map.zoom')
+        if center_test and zoom_test:
+            center = center_test
+            zoom = zoom_test
+
     # Create a scatter_geo plot, simulating a heatmap by coloring points based on density
     fig = px.density_map(dff,
                          lat="latitude_jitter",
                          lon="longitude_jitter",
                          radius=10,
-                         center=dict(lat=0, lon=0), 
-                         zoom=0,
+                         center=center, #dict(lat=0, lon=0)
+                         zoom=zoom, # 0
                          map_style="open-street-map", # "satellite-streets" #"open-street-map",
                          color_continuous_scale=color_scale,
                          opacity=1,
@@ -259,6 +271,11 @@ def update_map_heatmap(year_range, attacktype, targettype, group):
             titleside="right",  # Position the title on the right side
         )
     )
+
+    # get related attacks to click data
+    if clickData:
+        related = clickData['points'][0]['customdata'][8]
+        print(related)
     
     return fig
 
@@ -353,7 +370,7 @@ def update_info_box(clickData):
     flag = point_data[34]
 
     # Return a formatted string to display in the info box
-    return html.Div([
+    info_content = html.Div([
         html.P(f"Country: {country} {flag}"),
         html.P(f"Date: {day}-{month}-{year}"),
         html.P(f"Group: {group}"),
@@ -362,6 +379,10 @@ def update_info_box(clickData):
         html.P(f"Target Type: {targtype1}"),
         html.P(summary)
     ])
+
+
+
+    return info_content
 
 
 @callback(
