@@ -283,25 +283,16 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, targettype,
             related_split = [int(r) for r in related_split]
             # get information from related attacks
             related_gps = dff[dff['eventid'].isin(related_split)][['eventid', 'latitude_jitter', 'longitude_jitter']]
-            # highlight all related attacks
-            fig.add_trace(
-                go.Scattermap(
-                    mode='markers',
-                    lon=related_gps['longitude_jitter'],
-                    lat=related_gps['latitude_jitter'],
-                    hoverinfo='skip',
-                    marker=dict(color='black', opacity=0.7, size=10)
-                )
-            )
             for idx, (_, row) in  enumerate(related_gps.iterrows()):
-                # draw lines to all related attacks
+                # highlight related attacks and draw lines to them
                 fig.add_trace(
                     go.Scattermap(
-                        mode='lines',
+                        mode='lines+markers',
                         lon=[clicked_lon, row['longitude_jitter']],
                         lat=[clicked_lat, row['latitude_jitter']],
-                        line=dict(width=2, color='black'),
-                        opacity=0.7,
+                        line=dict(width=3, color='black'),
+                        marker=dict(size=10),
+                        opacity=0.8,
                         name=f'Related {idx+1}',
                         hoverinfo='skip', # no hover info
                         showlegend=False # don't show in legend
