@@ -41,7 +41,13 @@ def read_data_terror():
     df_jittered = add_jitter(df, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
     return df_jittered
 
+
 df_terror = read_data_terror()
+df_terror.loc[df_terror['weaptype1_txt'].str.contains('Vehicle'), 'weaptype1_txt'] = 'Vehicle'
+
+all_attacktypes = pd.Series(df_terror['attacktype1_txt'].unique(), name='attacktype1_txt')
+all_weapontypes = pd.Series(df_terror['weaptype1_txt'].unique(), name='weaptype1_txt')
+all_targettypes = pd.Series(df_terror['targtype1_txt'].unique(), name='targtype1_txt')
 
 
 ###################
@@ -54,7 +60,7 @@ def filter_years(df, year_range):
 
 
 @cache.memoize()
-def filter_data(df, year_range, attacktype, targettype, group):
+def filter_data(df, year_range, attacktype, weapontype, targettype, group):
     # filter years
     df_filtered = filter_years(df, year_range)
 
@@ -62,6 +68,10 @@ def filter_data(df, year_range, attacktype, targettype, group):
     if attacktype is not None:
         if len(attacktype) > 0:
             df_filtered = df_filtered[df_filtered['attacktype1_txt'].isin(attacktype)]
+    
+    if weapontype is not None:
+        if len(weapontype) > 0:
+            df_filtered = df_filtered[df_filtered['weaptype1_txt'].isin(weapontype)]
     
     # filter target
     if targettype is not None:
@@ -137,7 +147,21 @@ app.layout = html.Div([
                 maxHeight=200,
                 optionHeight=35
             ),
-            style={'width': '80%', 'padding': '20px'}
+            style={'width': '80%', 'padding': '5px'}
+        ),
+
+        html.Div(
+            dcc.Dropdown(
+                id='crossfilter-weapontype-dropdown',
+                options=list(df_terror['weaptype1_txt'].unique()),
+                value=None,
+                placeholder='Show All Weapon Types',
+                multi=True,
+                clearable=False,
+                maxHeight=200,
+                optionHeight=35
+            ),
+            style={'width': '80%', 'padding': '5px'}
         ),
 
         # set dropdown to choose target type
@@ -153,7 +177,7 @@ app.layout = html.Div([
                 maxHeight=200,
                 optionHeight=35
             ),
-            style={'width': '80%', 'padding': '20px'}
+            style={'width': '80%', 'padding': '5px'}
         ),
 
         # set dropdown to choose group
@@ -161,7 +185,7 @@ app.layout = html.Div([
         html.Div(
             id='crossfilter-group-container',
             children=update_group_dropdown(None, [2015, 2020]),
-            style={'width': '80%', 'padding': '20px'}
+            style={'width': '80%', 'padding': '5px'}
         ),
 
         # Heatmap below the Slider and Dropdown
@@ -207,11 +231,12 @@ app.layout = html.Div([
     Input('map-heatmap', 'clickData'),
     Input('crossfilter-year-slider', 'value'),
     Input('crossfilter-attacktype-dropdown', 'value'),
+    Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
     Input('crossfilter-group-dropdown', 'value'))
-def update_map_heatmap(map_state, clickData, year_range, attacktype, targettype, group):
+def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype, targettype, group):
     # get cached data
-    dff = filter_data(df_terror, year_range, attacktype, targettype, group)
+    dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
     
     # Plotly3 color scale
     color_scale = [
@@ -422,20 +447,22 @@ def update_info_box(clickData):
     Output('chart-weapon-distribution', 'figure'),
     Input('crossfilter-year-slider', 'value'),
     Input('crossfilter-attacktype-dropdown', 'value'),
+    Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
     Input('crossfilter-group-dropdown', 'value'))
-def update_chart_weapon_distribution(year_range, attacktype, targettype, group):
+def update_chart_weapon_distribution(year_range, attacktype, weapontype, targettype, group):
     # get cached data
-    dff = filter_data(df_terror, year_range, attacktype, targettype, group)
-    # count number of attacks per primary weapon type
-    dff_grouped = dff.groupby(['weaptype1_txt'])['weaptype1_txt'].count()
-    dff_grouped = dff_grouped.to_frame(name='count').reset_index()
-    # calculate percentage and round to 2 decimals
-    dff_grouped['percentage'] = dff_grouped['count']/dff_grouped['count'].sum()
-    dff_grouped['percentage'] = (100*dff_grouped['percentage']).round(1)
-    # change long Vehicle string to Vehicle
-    dff_grouped.loc[dff_grouped['weaptype1_txt'].str.contains('Vehicle'), 'weaptype1_txt'] = 'Vehicle'
-    # add year range ex. 2015-2020 or just 2020 for use in info box
+    dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
+    
+    # set as categorical and count number of occurences for each category
+    dff['weaptype1_txt'] = pd.Categorical(dff['weaptype1_txt'], categories=all_weapontypes.unique())
+    dff_grouped = dff['weaptype1_txt'].value_counts(dropna=False).reset_index()
+
+    # calculate percentage
+    dff_grouped['percentage'] = (100*dff_grouped['count']/dff_grouped['count'].sum()).round(1)
+
+
+    # add year range
     if year_range[1]-year_range[0]==0:
         dff_grouped['year_range'] = str(year_range[0])
     else:
