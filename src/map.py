@@ -80,9 +80,10 @@ def filter_data(df, year_range, attacktype, targettype, group):
 # setup filters
 @callback(
     Output('crossfilter-group-container', 'children'),
-    Input('crossfilter-year-slider', 'value')
+    State('crossfilter-group-dropdown', 'value'),
+    Input('crossfilter-year-slider', 'value'),
 )
-def update_group_dropdown(year_range):
+def update_group_dropdown(group_selections, year_range):
     # filter years
     df_filtered = filter_years(df_terror, year_range)
 
@@ -99,7 +100,7 @@ def update_group_dropdown(year_range):
     return dcc.Dropdown(
         id='crossfilter-group-dropdown',
         options=options,
-        value=None,
+        value=group_selections,
         placeholder='Show All Terror Groups',
         multi=True,
         clearable=False,
@@ -159,7 +160,7 @@ app.layout = html.Div([
         # can choose multiple types and can't clear value to being empty
         html.Div(
             id='crossfilter-group-container',
-            children=update_group_dropdown(year_range=[2015, 2020]),
+            children=update_group_dropdown(None, [2015, 2020]),
             style={'width': '80%', 'padding': '20px'}
         ),
 
