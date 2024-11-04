@@ -49,6 +49,8 @@ all_attacktypes = pd.Series(df_terror['attacktype1_txt'].unique(), name='attackt
 all_weapontypes = pd.Series(df_terror['weaptype1_txt'].unique(), name='weaptype1_txt')
 all_targettypes = pd.Series(df_terror['targtype1_txt'].unique(), name='targtype1_txt')
 
+all_countries = df_terror[['country_txt', 'region_txt']].drop_duplicates().reset_index(drop=True)
+
 
 ###################
 # filter data
@@ -224,7 +226,13 @@ app.layout = html.Div([
             dcc.Graph(
                 id='chart-weapon-distribution'
             )
-        ], style={'padding': '0 20', 'marginTop': '20px'})  # Adjust padding and margin to space them out
+        ], style={'padding': '0 20', 'marginTop': '20px'}),  # Adjust padding and margin to space them out
+
+        html.Div([
+            dcc.Graph(
+                id='scatterplot-severity'
+            )
+        ], style={'padding': '0 20', 'marginTop': '20px'})
     ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top'})  # Right side remains the same width
 ], style={'display': 'flex', 'flex-direction': 'row', 'margin': '0', 'padding': '0'})  # Set margin and padding to 0 for the entire layout
 
@@ -562,6 +570,36 @@ def update_chart_parallel_coordinates(year_range):
                     )
     )
     
+    return fig
+
+
+@callback(
+    Output('scatterplot-severity', 'figure'),
+    Input('crossfilter-year-slider', 'value'))
+def update_chart_parallel_coordinates(year_range):
+    # get cached data
+    dff = filter_years(df_terror, year_range)
+
+    dff_grouped = dff.groupby(['country_txt', 'region_txt'])
+    dff_num_attack = dff_grouped['eventid'].count()
+    dff_freq = dff_grouped['nkill'].mean()
+
+    dff_prepared = all_countries.merge(dff_num_attack, left_on=['country_txt', 'region_txt'], right_index=True, how='left')
+    dff_prepared = dff_prepared.merge(dff_freq, left_on=['country_txt', 'region_txt'], right_index=True, how='left')
+    dff_prepared.columns = ['country_txt', 'region_txt', 'number_of_attacks', 'avg_kill']
+    dff_prepared['number_of_attacks'] = dff_prepared['number_of_attacks'].fillna(0).astype(int)
+    dff_prepared['avg_kill'] = dff_prepared['avg_kill'].fillna(0).round(4)
+
+    fig = go.Figure(data=go.Scatter(x=dff_prepared['number_of_attacks'],
+                                    y=dff_prepared['avg_kill'],
+                                    mode='markers',
+                                    text=dff_prepared['country_txt'])
+    )
+
+    fig.update_layout(title='Average casualties per attack per country', 
+                      xaxis_title='Number of attacks', 
+                      yaxis_title='Average casualties per attacks')
+
     return fig
 
 
