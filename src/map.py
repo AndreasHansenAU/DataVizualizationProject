@@ -196,7 +196,13 @@ app.layout = html.Div([
                 hoverData=None,
                 clickData=None
             )
-        ], style={'padding': '0', 'width': '100%', 'position': 'relative', 'left': '-50px'})  # Keep the heatmap shifted to the left
+        ], style={'padding': '0', 'width': '100%', 'position': 'relative', 'left': '-50px'}),  # Keep the heatmap shifted to the left
+
+        html.Div([
+            dcc.Graph(
+                id='chart-parallel-coordinates'
+            )
+        ], style={'padding': '0', 'width': '100%', 'position': 'relative'})
     ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '0 10px'}),  # Reverted the padding for left container
 
     # Right side - infobox and bar chart stacked vertically
@@ -493,6 +499,71 @@ def update_chart_weapon_distribution(year_range, attacktype, weapontype, targett
     )
     
     return fig
+
+
+@callback(
+    Output('chart-parallel-coordinates', 'figure'),
+    Input('crossfilter-year-slider', 'value'))
+def update_chart_parallel_coordinates(year_range):
+    # get cached data
+    dff = filter_years(df_terror, year_range)
+
+    # transform categoricals to numeric factors
+    weapontype_mapping = dict(zip(all_weapontypes, pd.factorize(all_weapontypes)[0]+1))
+    dff['weaptype1_code'] = dff['weaptype1_txt'].map(weapontype_mapping)
+    attacktype_mapping = dict(zip(all_attacktypes, pd.factorize(all_attacktypes)[0]+1))
+    dff['attacktype1_code'] = dff['attacktype1_txt'].map(attacktype_mapping)
+    targettype_mapping = dict(zip(all_targettypes, pd.factorize(all_targettypes)[0]+1))
+    dff['targtype1_code'] = dff['targtype1_txt'].map(targettype_mapping)
+
+    fig = go.Figure(data=
+                    go.Parcoords(
+                        line=dict(
+                            color='red'
+                        ),
+                        #line = dict(color=dff['nkill'],
+                        #            colorscale='Electric',
+                        #            showscale=True,
+                        #            cmin=0,
+                        #            cmax=dff['nkill'].max()
+                        #),
+                        dimensions=list([
+                            dict(range=[1, all_weapontypes.shape[0]],
+                                 tickvals=[i for i in range(1, all_weapontypes.shape[0]+1)],
+                                 ticktext=all_weapontypes.values,
+                                 label='Weapon type',
+                                 values=dff['weaptype1_code']
+                            ),
+                            dict(range=[1, all_attacktypes.shape[0]],
+                                 tickvals=[i for i in range(1, all_attacktypes.shape[0]+1)],
+                                 ticktext=all_attacktypes.values,
+                                 label='Attack type',
+                                 values=dff['attacktype1_code']
+                            ),
+                            dict(range=[1, all_targettypes.shape[0]],
+                                 tickvals=[i for i in range(1, all_targettypes.shape[0]+1)],
+                                 ticktext=all_targettypes.values,
+                                 label='Target type',
+                                 values=dff['targtype1_code']
+                            ),
+                            dict(range=[int(dff['nwound'].min()), int(dff['nwound'].max())],
+                                 visible=True,
+                                 label='Number of wounded',
+                                 values=dff['nwound']
+                            ),
+                            dict(range=[int(dff['nkill'].min()), int(dff['nkill'].max())],
+                                 visible=True,
+                                 label='Number of casualities',
+                                 values=dff['nkill']
+                            )
+                        ]),
+                        unselected=dict(line=dict(color='grey', 
+                                                  opacity=0.3))
+                    )
+    )
+    
+    return fig
+
 
 
 ###################
