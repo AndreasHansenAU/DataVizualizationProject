@@ -194,11 +194,11 @@ app.layout = html.Div([
             dcc.RadioItems(
                 id='toggle-metric',
                 options=[
-                    {'label': 'Show Attacks', 'value': 'attacks'},
-                    {'label': 'Show Casualties', 'value': 'casualties'}
+                    {'label': 'Show Number of Attacks', 'value': 'attacks'},
+                    {'label': 'Show Total Casualties', 'value': 'casualties'}
                 ],
-                value='attacks',  # default value
-                inline=True
+                value='attacks', # default
+                inline=False
             )
         ], style={'padding': '10px', 'display': 'inline-block'}),
 
@@ -210,13 +210,7 @@ app.layout = html.Div([
                 hoverData=None,
                 clickData=None
             )
-        ], style={'padding': '0', 'width': '100%', 'position': 'relative', 'left': '-50px'}),  # Keep the heatmap shifted to the left
-
-        html.Div([
-            dcc.Graph(
-                id='chart-parallel-coordinates'
-            )
-        ], style={'padding': '0', 'width': '100%', 'position': 'relative'})
+        ], style={'padding': '0', 'width': '100%', 'position': 'relative', 'left': '-50px'})  # Keep the heatmap shifted to the left
     ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '0 10px'}),  # Reverted the padding for left container
 
     # Right side - infobox and bar chart stacked vertically
@@ -266,14 +260,13 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
     dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
     
     if metric == 'casualties':
-        # Sum casualties (nkill + nwound) for each unique location if 'casualties' is selected
-        dff['total_casualties'] = dff['nkill'] + dff['nwound']
         z_value = 'total_casualties'
-        max_density = 100
+        max_density = 200
+        print(max_density)
         colorbar_title = "Total Casualties"
     else:
         z_value = None
-        max_density = 50
+        max_density = 200
         colorbar_title = "Number of Attacks"
 
     # Plotly3 color scale
@@ -306,7 +299,7 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
 
     # update hover box
     fig.update_traces(customdata=dff[['country_txt', 'iday', 'imonth', 'iyear',
-                                      'summary', 'crit1', 'crit2', 'crit3', 'related', 'region_txt',# 'provstate', 'city', 
+                                      'summary', 'crit1', 'crit2', 'crit3', 'related', 'region_txt', 'provstate', 'city', 
                                       'attacktype1_txt', #'attacktype2_txt', 'attacktype3_txt',
                                       'success', 'suicide',
                                       'weaptype1_txt', 'weapsubtype1_txt', #'weaptype2_txt', 'weapsubtype2_txt', 'weaptype3_txt', 'weapsubtype3_txt',
@@ -318,11 +311,11 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
                                       'nkill', 'nkillter', 'nwound', 'nwoundte', 'property', 'propvalue', 'ishostkid', 'nhostkid', 'nhours', 'ndays',
                                       'flag']],
                       # update hover box
-                      hovertemplate="<b>%{customdata[0]} %{customdata[1]}-%{customdata[2]}-%{customdata[3]}</b><br>"
-                                    "Group: %{customdata[20]}<br>"
-                                    "Attack type: %{customdata[10]}<br>"
-                                    "Weapon type: %{customdata[13]}<br>"
-                                    "Target type: %{customdata[15]}<br>")
+                      hovertemplate="<b>%{customdata[1]}-%{customdata[2]}-%{customdata[3]} %{customdata[11]}, %{customdata[0]}</b><br>"
+                                    "Group: %{customdata[22]}<br>"
+                                    "Attack type: %{customdata[12]}<br>"
+                                    "Weapon type: %{customdata[15]}<br>"
+                                    "Target type: %{customdata[17]}<br>")
 
 
     # Update layout to add a title to the legend
@@ -397,8 +390,8 @@ def update_info_box(clickData):
     crit3 = point_data[7]
     related = point_data[8]
     region_txt = point_data[9]
-    #provstate = point_data[10]
-    #city = point_data[11]
+    provstate = point_data[10]
+    city = point_data[11]
     
     # Attack types
     attacktype1 = point_data[10]
@@ -491,26 +484,21 @@ def update_chart_weapon_distribution(year_range, attacktype, weapontype, targett
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
     
+    # group by weapon type
     dff_grouped = dff.groupby(["weaptype1_txt"])
+
+    # calculate number of death or number of attacks per weapon type
     if metric == "casualties":
         dff_num_weapons = dff_grouped["nkill"].sum().to_frame(name="count").reset_index(drop=False)
-        weap_dist_title = 'Which weapons are most deadly?'
+        weap_dist_title = 'Which weapons are used to harm or kill most people?'
     else:
         dff_num_weapons = dff_grouped["weaptype1_txt"].count().to_frame(name="count").reset_index(drop=False)
-        weap_dist_title = 'Which weapons are used most frequently?'
+        weap_dist_title = 'Which weapons are most frequently used in attacks?'
+    
+    # join on all weapon types
     dff_prepared = all_weapontypes.merge(dff_num_weapons, on="weaptype1_txt", how="left")
     dff_prepared["count"] = dff_prepared["count"].fillna(0).astype(int)
-
-    # calculate percentage
-    dff_prepared['percentage'] = (100*dff_prepared['count']/dff_prepared['count'].sum()).round(1)
-
-
-    # add year range
-    if year_range[1]-year_range[0]==0:
-        dff_prepared['year_range'] = str(year_range[0])
-    else:
-        dff_prepared['year_range'] = str(year_range[0])+'-'+str(year_range[1])
-
+    
     # sort by ascending count
     dff_sorted = dff_prepared.sort_values(by=['count'], ascending=True)
 
@@ -522,81 +510,11 @@ def update_chart_weapon_distribution(year_range, attacktype, weapontype, targett
                  text_auto=True
     )
 
-    fig.update_traces(customdata=dff_sorted[['weaptype1_txt', 'count', 'percentage', 'year_range']],
-                      hovertemplate=(
-                          "%{customdata[0]} was the primary weapon type<br>"
-                          "in %{customdata[2]}% of filtered attacks in %{customdata[3]}.")
-    )
-
     fig.update_layout(
         title=weap_dist_title,
         yaxis_title='',
         xaxis_title='Number of attacks',
         title_x=0.5
-    )
-    
-    return fig
-
-
-@callback(
-    Output('chart-parallel-coordinates', 'figure'),
-    Input('crossfilter-year-slider', 'value'))
-def update_chart_parallel_coordinates(year_range):
-    # get cached data
-    dff = filter_years(df_terror, year_range)
-
-    # transform categoricals to numeric factors
-    weapontype_mapping = dict(zip(all_weapontypes, pd.factorize(all_weapontypes)[0]+1))
-    dff['weaptype1_code'] = dff['weaptype1_txt'].map(weapontype_mapping)
-    attacktype_mapping = dict(zip(all_attacktypes, pd.factorize(all_attacktypes)[0]+1))
-    dff['attacktype1_code'] = dff['attacktype1_txt'].map(attacktype_mapping)
-    targettype_mapping = dict(zip(all_targettypes, pd.factorize(all_targettypes)[0]+1))
-    dff['targtype1_code'] = dff['targtype1_txt'].map(targettype_mapping)
-
-    fig = go.Figure(data=
-                    go.Parcoords(
-                        line=dict(
-                            color='red'
-                        ),
-                        #line = dict(color=dff['nkill'],
-                        #            colorscale='Electric',
-                        #            showscale=True,
-                        #            cmin=0,
-                        #            cmax=dff['nkill'].max()
-                        #),
-                        dimensions=list([
-                            dict(range=[1, all_weapontypes.shape[0]],
-                                 tickvals=[i for i in range(1, all_weapontypes.shape[0]+1)],
-                                 ticktext=all_weapontypes.values,
-                                 label='Weapon type',
-                                 values=dff['weaptype1_code']
-                            ),
-                            dict(range=[1, all_attacktypes.shape[0]],
-                                 tickvals=[i for i in range(1, all_attacktypes.shape[0]+1)],
-                                 ticktext=all_attacktypes.values,
-                                 label='Attack type',
-                                 values=dff['attacktype1_code']
-                            ),
-                            dict(range=[1, all_targettypes.shape[0]],
-                                 tickvals=[i for i in range(1, all_targettypes.shape[0]+1)],
-                                 ticktext=all_targettypes.values,
-                                 label='Target type',
-                                 values=dff['targtype1_code']
-                            ),
-                            dict(range=[int(dff['nwound'].min()), int(dff['nwound'].max())],
-                                 visible=True,
-                                 label='Number of wounded',
-                                 values=dff['nwound']
-                            ),
-                            dict(range=[int(dff['nkill'].min()), int(dff['nkill'].max())],
-                                 visible=True,
-                                 label='Number of casualities',
-                                 values=dff['nkill']
-                            )
-                        ]),
-                        unselected=dict(line=dict(color='grey', 
-                                                  opacity=0.3))
-                    )
     )
     
     return fig
