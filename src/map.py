@@ -46,7 +46,7 @@ df_terror = read_data_terror()
 df_terror.loc[df_terror['weaptype1_txt'].str.contains('Vehicle'), 'weaptype1_txt'] = 'Vehicle'
 
 all_attacktypes = pd.Series(df_terror['attacktype1_txt'].unique(), name='attacktype1_txt')
-all_weapontypes = pd.Series(df_terror['weaptype1_txt'].unique(), name='weaptype1_txt')
+all_weapontypes = pd.DataFrame(df_terror['weaptype1_txt'].unique(), columns=['weaptype1_txt'])
 all_targettypes = pd.Series(df_terror['targtype1_txt'].unique(), name='targtype1_txt')
 
 all_countries = df_terror[['country_txt', 'region_txt']].drop_duplicates().reset_index(drop=True)
@@ -190,6 +190,18 @@ app.layout = html.Div([
             style={'width': '80%', 'padding': '5px'}
         ),
 
+        html.Div([
+            dcc.RadioItems(
+                id='toggle-metric',
+                options=[
+                    {'label': 'Show Attacks', 'value': 'attacks'},
+                    {'label': 'Show Casualties', 'value': 'casualties'}
+                ],
+                value='attacks',  # default value
+                inline=True
+            )
+        ], style={'padding': '10px', 'display': 'inline-block'}),
+
         # Heatmap below the Slider and Dropdown
         html.Div([
             dcc.Store(id='map-state', data={'zoom':0, 'center':dict(lat=0, lon=0)}),
@@ -247,11 +259,23 @@ app.layout = html.Div([
     Input('crossfilter-attacktype-dropdown', 'value'),
     Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
-    Input('crossfilter-group-dropdown', 'value'))
-def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype, targettype, group):
+    Input('crossfilter-group-dropdown', 'value'),
+    Input('toggle-metric', 'value'))
+def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype, targettype, group, metric):
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
     
+    if metric == 'casualties':
+        # Sum casualties (nkill + nwound) for each unique location if 'casualties' is selected
+        dff['total_casualties'] = dff['nkill'] + dff['nwound']
+        z_value = 'total_casualties'
+        max_density = 100
+        colorbar_title = "Total Casualties"
+    else:
+        z_value = None
+        max_density = 50
+        colorbar_title = "Number of Attacks"
+
     # Plotly3 color scale
     color_scale = [
         [0.0,  "rgba(0, 0, 0, 0)"],
@@ -260,9 +284,6 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
         [0.6,  "#dd2bfd"],
         [1.0,  "#fec3fe"]
     ]
-
-    # maximum scale value
-    max_density = 50
     
     # ensure that map is drawn in same state prior to update
 
@@ -273,6 +294,7 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
     fig = px.density_map(dff,
                          lat="latitude_jitter",
                          lon="longitude_jitter",
+                         z=z_value,
                          radius=10,
                          center=center, #dict(lat=0, lon=0)
                          zoom=zoom, # 0
@@ -306,7 +328,7 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
     # Update layout to add a title to the legend
     fig.update_layout(
         coloraxis_colorbar=dict(
-            title="Number of attacks",  # Set the title for the colorbar (legend)
+            title=colorbar_title,  # Set the title for the colorbar (legend)
             titleside="right",  # Position the title on the right side
         )
     )
@@ -463,27 +485,34 @@ def update_info_box(clickData):
     Input('crossfilter-attacktype-dropdown', 'value'),
     Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
-    Input('crossfilter-group-dropdown', 'value'))
-def update_chart_weapon_distribution(year_range, attacktype, weapontype, targettype, group):
+    Input('crossfilter-group-dropdown', 'value'),
+    Input('toggle-metric', 'value'))
+def update_chart_weapon_distribution(year_range, attacktype, weapontype, targettype, group, metric):
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
     
-    # set as categorical and count number of occurences for each category
-    dff['weaptype1_txt'] = pd.Categorical(dff['weaptype1_txt'], categories=all_weapontypes.unique())
-    dff_grouped = dff['weaptype1_txt'].value_counts(dropna=False).reset_index()
+    dff_grouped = dff.groupby(["weaptype1_txt"])
+    if metric == "casualties":
+        dff_num_weapons = dff_grouped["nkill"].sum().to_frame(name="count").reset_index(drop=False)
+        weap_dist_title = 'Which weapons are most deadly?'
+    else:
+        dff_num_weapons = dff_grouped["weaptype1_txt"].count().to_frame(name="count").reset_index(drop=False)
+        weap_dist_title = 'Which weapons are used most frequently?'
+    dff_prepared = all_weapontypes.merge(dff_num_weapons, on="weaptype1_txt", how="left")
+    dff_prepared["count"] = dff_prepared["count"].fillna(0).astype(int)
 
     # calculate percentage
-    dff_grouped['percentage'] = (100*dff_grouped['count']/dff_grouped['count'].sum()).round(1)
+    dff_prepared['percentage'] = (100*dff_prepared['count']/dff_prepared['count'].sum()).round(1)
 
 
     # add year range
     if year_range[1]-year_range[0]==0:
-        dff_grouped['year_range'] = str(year_range[0])
+        dff_prepared['year_range'] = str(year_range[0])
     else:
-        dff_grouped['year_range'] = str(year_range[0])+'-'+str(year_range[1])
+        dff_prepared['year_range'] = str(year_range[0])+'-'+str(year_range[1])
 
     # sort by ascending count
-    dff_sorted = dff_grouped.sort_values(by=['count'], ascending=True)
+    dff_sorted = dff_prepared.sort_values(by=['count'], ascending=True)
 
     fig = px.bar(dff_sorted, 
                  x='count', 
@@ -500,7 +529,7 @@ def update_chart_weapon_distribution(year_range, attacktype, weapontype, targett
     )
 
     fig.update_layout(
-        title='Which weapons are used most frequently?',
+        title=weap_dist_title,
         yaxis_title='',
         xaxis_title='Number of attacks',
         title_x=0.5
