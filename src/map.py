@@ -1,5 +1,5 @@
 from utils.Jitter import add_jitter
-from dash import Dash, html, dcc, Input, Output, State, callback, no_update
+from dash import Dash, html, dcc, ctx, Input, Output, State, callback, no_update
 import dash_core_components as dcc
 from flask_caching import Cache
 import pandas as pd
@@ -260,7 +260,14 @@ app.layout = html.Div([
     Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
     Input('crossfilter-group-dropdown', 'value'),
-    Input('toggle-metric', 'value'))
+    Input('toggle-metric', 'value'),
+    running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
+             (Output('toggle-metric', 'disabled'), True, False)],
+    prevent_initial_call=True)
 def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype, targettype, group, metric):
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
@@ -268,7 +275,6 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
     if metric == 'casualties':
         z_value = 'total_casualties'
         max_density = 200
-        print(max_density)
         colorbar_title = "Total Casualties"
     else:
         z_value = None
@@ -286,8 +292,15 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
     
     # ensure that map is drawn in same state prior to update
 
-    zoom = map_state['zoom']
-    center = map_state['center']
+    trigger = list(ctx.triggered_prop_ids.keys())
+    if 'map-heatmap.clickData' in trigger:
+        clicked_lat = clickData['points'][0]['lat']
+        clicked_lon = clickData['points'][0]['lon']
+        zoom = 7
+        center = {'lat':clicked_lat, 'lon':clicked_lon}
+    else:
+        zoom = map_state['zoom']
+        center = map_state['center']
 
     # Create a scatter_geo plot, simulating a heatmap by coloring points based on density
     fig = px.density_map(dff,
@@ -304,7 +317,7 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
     )
 
     # update hover box
-    fig.update_traces(customdata=dff[['country_txt', 'iday', 'imonth', 'iyear',
+    fig.update_traces(customdata=dff[['eventid', 'country_txt', 'iday', 'imonth', 'iyear',
                                       'summary', 'crit1', 'crit2', 'crit3', 'related', 'region_txt', 'provstate', 'city', 
                                       'attacktype1_txt', #'attacktype2_txt', 'attacktype3_txt',
                                       'success', 'suicide',
@@ -317,11 +330,11 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
                                       'nkill', 'nkillter', 'nwound', 'nwoundte', 'property', 'propvalue', 'ishostkid', 'nhostkid', 'nhours', 'ndays',
                                       'flag']],
                       # update hover box
-                      hovertemplate="<b>%{customdata[1]}-%{customdata[2]}-%{customdata[3]} %{customdata[11]}, %{customdata[0]}</b><br>"
-                                    "Group: %{customdata[22]}<br>"
-                                    "Attack type: %{customdata[12]}<br>"
-                                    "Weapon type: %{customdata[15]}<br>"
-                                    "Target type: %{customdata[17]}<br>")
+                      hovertemplate="<b>%{customdata[2]}-%{customdata[3]}-%{customdata[4]} %{customdata[12]}, %{customdata[1]}</b><br>"
+                                    "Group: %{customdata[23]}<br>"
+                                    "Attack type: %{customdata[13]}<br>"
+                                    "Weapon type: %{customdata[16]}<br>"
+                                    "Target type: %{customdata[18]}<br>")
 
 
     # Update layout to add a title to the legend
@@ -332,12 +345,12 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
         )
     )
 
-    # draw lines to related attacks
+    # draw lines to related attacks and draw clicked point
     if clickData:
         # get current point
         clicked_lat = clickData['points'][0]['lat']
         clicked_lon = clickData['points'][0]['lon']
-        related = clickData['points'][0]['customdata'][8]
+        related = clickData['points'][0]['customdata'][9]
         if related:
             # format ids of related attacks
             related_split = related.split(', ')
@@ -352,24 +365,49 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
                         lon=[clicked_lon, row['longitude_jitter']],
                         lat=[clicked_lat, row['latitude_jitter']],
                         line=dict(width=3, color='black'),
-                        marker=dict(size=10),
+                        marker=dict(size=10, color='black'),
                         opacity=0.8,
                         name=f'Related {idx+1}',
                         hoverinfo='skip', # no hover info
                         showlegend=False # don't show in legend
                     ),
                 )
-
+        # plot clicked point if it's still in the filtered data
+        clicked_eventid = clickData['points'][0]['customdata'][0]
+        is_eventid_present = dff['eventid'].isin([clicked_eventid]).any()
+        if is_eventid_present:
+            fig.add_trace(
+                go.Scattermap(
+                    mode='markers',
+                    lon=[clicked_lon],
+                    lat=[clicked_lat],
+                    marker=dict(size=10, color='red'),
+                    opacity=0.8,
+                    hoverinfo='skip', # no hover info
+                    showlegend=False # don't show in legend
+                ),
+            )
     return fig
 
 
 @callback(
     Output('map-state', 'data'),
     Input('map-heatmap', 'relayoutData'),
+    Input('map-heatmap', 'clickData'),
     prevent_initial_call=True
 )
-def update_map_state(relayoutData):
-    if relayoutData:
+def update_map_state(relayoutData, clickData):
+    trigger = list(ctx.triggered_prop_ids.keys())
+
+    # if triggered by click then update state to clicked points location
+    if 'map-heatmap.clickData' in trigger:
+        clicked_lat = clickData['points'][0]['lat']
+        clicked_lon = clickData['points'][0]['lon']
+        return {'zoom': 7,
+                'center': {'lat':clicked_lat, 'lon':clicked_lon}}
+
+    # if triggered by relayout then update state
+    if 'map-heatmap.relayoutData' in trigger:
         return {'zoom': relayoutData.get('map.zoom'), 
                 'center': relayoutData.get('map.center')}
     return no_update
@@ -386,83 +424,84 @@ def update_info_box(clickData):
     point_data = clickData['points'][0]['customdata']
 
     # Overall details
-    country = point_data[0]
-    day = point_data[1]
-    month = point_data[2]
-    year = point_data[3]
-    summary = point_data[4]
-    crit1 = point_data[5]
-    crit2 = point_data[6]
-    crit3 = point_data[7]
-    related = point_data[8]
-    region_txt = point_data[9]
-    provstate = point_data[10]
-    city = point_data[11]
+    eventid = point_data[0]
+    country = point_data[1]
+    day = point_data[2]
+    month = point_data[3]
+    year = point_data[4]
+    summary = point_data[5]
+    crit1 = point_data[6]
+    crit2 = point_data[7]
+    crit3 = point_data[8]
+    related = point_data[9]
+    region_txt = point_data[10]
+    provstate = point_data[11]
+    city = point_data[12]
     
     # Attack types
-    attacktype1 = point_data[10]
+    attacktype1 = point_data[13]
     #attacktype2 = point_data[13]
     #attacktype3 = point_data[14]
     
     # Success and suicide
-    success = point_data[11]
-    suicide = point_data[12]
+    success = point_data[14]
+    suicide = point_data[15]
     
     # Weapon types and subtypes
-    weaptype1 = point_data[13]
-    weapsubtype1 = point_data[14]
+    weaptype1 = point_data[16]
+    weapsubtype1 = point_data[17]
     #weaptype2 = point_data[19]
     #weapsubtype2 = point_data[20]
     #weaptype3 = point_data[21]
     #weapsubtype3 = point_data[22]
     
     # Target types and subtypes
-    targtype1 = point_data[15]
-    targsubtype1 = point_data[16]
+    targtype1 = point_data[18]
+    targsubtype1 = point_data[19]
     #targtype2 = point_data[25]
     #targsubtype2 = point_data[26]
     #targtype3 = point_data[27]
     #targsubtype3 = point_data[28]
     
     # Corporate 
-    corp1 = point_data[17]
+    corp1 = point_data[20]
     #corp2 = point_data[30]
     #corp3 = point_data[31]
     
     # Target
-    target1 = point_data[18]
+    target1 = point_data[21]
     #target2 = point_data[33]
     #target3 = point_data[34]
     
     # Target nationaly
-    natlty1 = point_data[19]
+    natlty1 = point_data[22]
     #natlty2 = point_data[36]
     #natlty3 = point_data[37]
     
     # Groups
-    group = point_data[20]
-    guncertain = point_data[21]
-    nperps = point_data[22]
-    motive = point_data[23]
+    group = point_data[23]
+    guncertain = point_data[24]
+    nperps = point_data[25]
+    motive = point_data[26]
     
     # Casualties and injuries
-    nkill = point_data[24]
-    nkillter = point_data[25]
-    nwound = point_data[26]
-    nwoundte = point_data[27]
+    nkill = point_data[27]
+    nkillter = point_data[28]
+    nwound = point_data[29]
+    nwoundte = point_data[30]
     
     # Property damage
-    property = point_data[28]
-    propvalue = point_data[29]
+    property = point_data[31]
+    propvalue = point_data[32]
     
     # Hostage information
-    ishostkid = point_data[30]
-    nhostkid = point_data[31]
-    nhours = point_data[32]
-    ndays = point_data[33]
+    ishostkid = point_data[33]
+    nhostkid = point_data[34]
+    nhours = point_data[35]
+    ndays = point_data[36]
     
     # Flag
-    flag = point_data[34]
+    flag = point_data[37]
 
     # Return a formatted string to display in the info box
     info_content = html.Div([
@@ -485,7 +524,13 @@ def update_info_box(clickData):
     Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
     Input('crossfilter-group-dropdown', 'value'),
-    Input('toggle-metric', 'value'))
+    Input('toggle-metric', 'value'),
+    running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
+             (Output('toggle-metric', 'disabled'), True, False)])
 def update_chart_weapon_distribution(year_range, attacktype, weapontype, targettype, group, metric):
     # get cached data
     dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
@@ -528,7 +573,13 @@ def update_chart_weapon_distribution(year_range, attacktype, weapontype, targett
 
 @callback(
     Output('scatterplot-severity', 'figure'),
-    Input('crossfilter-year-slider', 'value'))
+    Input('crossfilter-year-slider', 'value'),
+    running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
+             (Output('toggle-metric', 'disabled'), True, False)])
 def update_chart_scatterplot_severity(year_range):
     # get cached data
     dff = filter_years(df_terror, year_range)
@@ -561,9 +612,17 @@ def update_chart_scatterplot_severity(year_range):
         Input('crossfilter-year-slider', 'value'),
         Input('crossfilter-attacktype-dropdown', 'value'),
         Input('crossfilter-weapontype-dropdown', 'value'),
-        Input('crossfilter-targettype-dropdown', 'value'))
-def update_chart_parallel_sets(year_range, attacktype, weapontype, targettype):
-    dff = filter_years(df_terror, year_range)
+        Input('crossfilter-targettype-dropdown', 'value'),
+        Input('crossfilter-group-dropdown', 'value'),
+        running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
+             (Output('toggle-metric', 'disabled'), True, False)])
+def update_chart_parallel_sets(year_range, attacktype, weapontype, targettype, group):
+    #dff = filter_years(df_terror, year_range)
+    dff = filter_data(df_terror, year_range, attacktype=None, weapontype=None, targettype=None, group=group)
 
     # set value for color based on filters
     dff['highlight'] = 1
@@ -606,13 +665,14 @@ def update_chart_parallel_sets(year_range, attacktype, weapontype, targettype):
             hoveron='category',  # show hover info for one category only
             hoverinfo=None, # enable hover
             labelfont=dict(color='rgba(0, 0, 0, 1)'),
-            tickfont=dict(color='rgba(0, 0, 0, 1)')
+            tickfont=dict(color='rgba(0, 0, 0, 1)'),
+            sortpaths='forward'
         )
     )
 
     # Update layout for improved readability and consistency
     fig.update_layout(
-        title="How are the choices of weapons, targets, and attacks related?",
+        title='How are weapons, targets, and attacks related?',
         font=dict(size=12),
         plot_bgcolor='white'
     )
