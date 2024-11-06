@@ -210,7 +210,13 @@ app.layout = html.Div([
                 hoverData=None,
                 clickData=None
             )
-        ], style={'padding': '0', 'width': '100%', 'position': 'relative', 'left': '-50px'})  # Keep the heatmap shifted to the left
+        ], style={'padding': '0', 'width': '100%', 'position': 'relative', 'left': '-50px'}),  # Keep the heatmap shifted to the left
+
+        html.Div([
+            dcc.Graph(
+                id='chart-parallel-sets'
+            )
+        ])
     ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '0 10px'}),  # Reverted the padding for left container
 
     # Right side - infobox and bar chart stacked vertically
@@ -523,7 +529,7 @@ def update_chart_weapon_distribution(year_range, attacktype, weapontype, targett
 @callback(
     Output('scatterplot-severity', 'figure'),
     Input('crossfilter-year-slider', 'value'))
-def update_chart_parallel_coordinates(year_range):
+def update_chart_scatterplot_severity(year_range):
     # get cached data
     dff = filter_years(df_terror, year_range)
 
@@ -549,6 +555,69 @@ def update_chart_parallel_coordinates(year_range):
 
     return fig
 
+
+@callback(
+        Output('chart-parallel-sets', 'figure'),
+        Input('crossfilter-year-slider', 'value'),
+        Input('crossfilter-attacktype-dropdown', 'value'),
+        Input('crossfilter-weapontype-dropdown', 'value'),
+        Input('crossfilter-targettype-dropdown', 'value'))
+def update_chart_parallel_sets(year_range, attacktype, weapontype, targettype):
+    dff = filter_years(df_terror, year_range)
+
+    # set value for color based on filters
+    dff['highlight'] = 1
+    if (weapontype or attacktype or targettype):
+        # define condition by boolean vector or True
+        weapon_condition = dff['weaptype1_txt'].isin(weapontype) if weapontype else True
+        attack_condition = dff['attacktype1_txt'].isin(attacktype) if attacktype else True
+        target_condition = dff['targtype1_txt'].isin(targettype) if targettype else True
+        condition = weapon_condition & attack_condition & target_condition
+
+        # set opacity based on condition
+        dff.loc[condition == True, 'highlight'] = 1
+        dff.loc[condition == False, 'highlight'] = 0
+    
+    # define order of dimensions
+    attack_order = dff.groupby(['attacktype1_txt'])['attacktype1_txt'].count().sort_values(ascending=False).index
+    weapon_order = dff.groupby(['weaptype1_txt'])['weaptype1_txt'].count().sort_values(ascending=False).index
+    target_order = dff.groupby(['targtype1_txt'])['targtype1_txt'].count().sort_values(ascending=False).index
+
+    # set dimensions with labels
+    dimensions=[
+        dict(values=dff['attacktype1_txt'], label="Attacks", categoryarray=attack_order),
+        dict(values=dff['weaptype1_txt'], label="Weapons", categoryarray=weapon_order),
+        dict(values=dff['targtype1_txt'], label="Targets", categoryarray=target_order)
+    ]
+
+    # set color scale for highlights
+    hightlight_scale = [[0, 'rgba(211, 211, 211, 0.3)'], # light grey not highlighted
+                        [1, 'rgba(65, 105, 225, 1)']] # blue when filters
+
+    # parallel categories
+    fig = go.Figure(
+        go.Parcats(
+            dimensions=dimensions,
+            line=dict(
+                color=dff['highlight'], # color based on level of highlight
+                colorscale=hightlight_scale,
+                shape='hspline' # smooth curves rather than linear lines
+            ),
+            hoveron='category',  # show hover info for one category only
+            hoverinfo=None, # enable hover
+            labelfont=dict(color='rgba(0, 0, 0, 1)'),
+            tickfont=dict(color='rgba(0, 0, 0, 1)')
+        )
+    )
+
+    # Update layout for improved readability and consistency
+    fig.update_layout(
+        title="How are the choices of weapons, targets, and attacks related?",
+        font=dict(size=12),
+        plot_bgcolor='white'
+    )
+    
+    return fig
 
 
 ###################
