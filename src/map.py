@@ -92,6 +92,47 @@ def filter_data(df, year_range, attacktype, weapontype, targettype, group):
 ###################
 # setup filters
 @callback(
+    Output('crossfilter-summary-container', 'children'),
+    State('crossfilter-summary-dropdown', 'value'),
+    Input('crossfilter-year-slider', 'value'),
+    Input('crossfilter-attacktype-dropdown', 'value'),
+    Input('crossfilter-weapontype-dropdown', 'value'),
+    Input('crossfilter-targettype-dropdown', 'value'),
+    Input('crossfilter-group-dropdown', 'value'),
+)
+def update_summary_dropdown(summary_selections, year_range, attacktype, weapontype, targettype, group):
+    # filter
+    df_notna = df_terror[df_terror['summary'].notna()]
+    df_filtered = filter_data(df_notna, year_range, attacktype, weapontype, targettype, group)
+
+    if len(df_filtered) > 5000:
+        options = [{'label': 'Please apply more filters to narrow down your search...', 'value': 'none', 'disabled': True}]
+    else:
+        # Find total casualties for each summary
+        summary_casualties = df_filtered.groupby(['summary'])['total_casualties'].sum()
+        # sort ascending
+        summaries_sorted = summary_casualties.sort_values(ascending=False)
+        # Format required by dcc.Dropdown (label-value pairs)
+        options = [{'label': summary, 'value': summary} for summary in summaries_sorted.index]
+    
+    # Return the dcc.Dropdown component with the computed options
+    return dcc.Dropdown(
+        id='crossfilter-summary-dropdown',
+        options=options,
+        value=summary_selections,
+        placeholder='Find an attack using keywords',
+        multi=False,
+        clearable=True,
+        maxHeight=200,
+        optionHeight=35,
+        style={
+        'whiteSpace': 'nowrap',   # Allow text to wrap naturally
+        'display': 'block'        # Each selected item on its own line
+        }
+    )
+
+
+@callback(
     Output('crossfilter-group-container', 'children'),
     State('crossfilter-group-dropdown', 'value'),
     Input('crossfilter-year-slider', 'value'),
@@ -138,6 +179,12 @@ app.layout = html.Div([
                 allowCross=False  # Prevents crossing of the two handles
             )
         ], style={'width': '86%', 'padding': '20px', 'margin-left': '-25px'}),
+
+        html.Div(
+            id='crossfilter-summary-container',
+            children=update_summary_dropdown(None, [2015, 2020], None, None, None, None),
+            style={'width': '80%', 'padding': '5px', 'whiteSpace': 'nowrap'}
+        ),
 
         html.Div(
             dcc.Dropdown(
@@ -640,6 +687,7 @@ def update_chart_beeswarm(year_range, attacktype, weapontype, targettype, group)
         title='Which targets has the highest number of casualties?',
         xaxis=dict(title='', showgrid=True),
         yaxis=dict(title='', showgrid=True),
+        showlegend=False,
     )   
 
     return fig
