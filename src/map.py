@@ -9,6 +9,7 @@ from threading import Timer
 import os
 
 import plotly.graph_objects as go
+from plotly.colors import n_colors
 
 
 ###################
@@ -216,7 +217,7 @@ app.layout = html.Div([
             dcc.Graph(
                 id='chart-parallel-sets'
             )
-        ])
+        ], style={'padding': '0', 'width': '100%', 'position': 'relative'})
     ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '0 10px'}),  # Reverted the padding for left container
 
     # Right side - infobox and bar chart stacked vertically
@@ -233,18 +234,11 @@ app.layout = html.Div([
             })
         ], style={'padding': '0 20'}),
 
-        # Bar chart below the infobox
         html.Div([
             dcc.Graph(
-                id='chart-weapon-distribution'
+                id='chart-beeswarm'
             )
-        ], style={'padding': '0 20', 'marginTop': '20px'}),  # Adjust padding and margin to space them out
-
-        html.Div([
-            dcc.Graph(
-                id='scatterplot-severity'
-            )
-        ], style={'padding': '0 20', 'marginTop': '20px'})
+        ], style={'padding': '0', 'width': '100%', 'position': 'relative'})
     ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top'})  # Right side remains the same width
 ], style={'display': 'flex', 'flex-direction': 'row', 'margin': '0', 'padding': '0'})  # Set margin and padding to 0 for the entire layout
 
@@ -518,96 +512,6 @@ def update_info_box(clickData):
 
 
 @callback(
-    Output('chart-weapon-distribution', 'figure'),
-    Input('crossfilter-year-slider', 'value'),
-    Input('crossfilter-attacktype-dropdown', 'value'),
-    Input('crossfilter-weapontype-dropdown', 'value'),
-    Input('crossfilter-targettype-dropdown', 'value'),
-    Input('crossfilter-group-dropdown', 'value'),
-    Input('toggle-metric', 'value'),
-    running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
-             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
-             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
-             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
-             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
-             (Output('toggle-metric', 'disabled'), True, False)])
-def update_chart_weapon_distribution(year_range, attacktype, weapontype, targettype, group, metric):
-    # get cached data
-    dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
-    
-    # group by weapon type
-    dff_grouped = dff.groupby(["weaptype1_txt"])
-
-    # calculate number of death or number of attacks per weapon type
-    if metric == "casualties":
-        dff_num_weapons = dff_grouped["nkill"].sum().to_frame(name="count").reset_index(drop=False)
-        weap_dist_title = 'Which weapons are used to harm or kill most people?'
-    else:
-        dff_num_weapons = dff_grouped["weaptype1_txt"].count().to_frame(name="count").reset_index(drop=False)
-        weap_dist_title = 'Which weapons are most frequently used in attacks?'
-    
-    # join on all weapon types
-    dff_prepared = all_weapontypes.merge(dff_num_weapons, on="weaptype1_txt", how="left")
-    dff_prepared["count"] = dff_prepared["count"].fillna(0).astype(int)
-    
-    # sort by ascending count
-    dff_sorted = dff_prepared.sort_values(by=['count'], ascending=True)
-
-    fig = px.bar(dff_sorted, 
-                 x='count', 
-                 y='weaptype1_txt', 
-                 orientation='h',
-                 text='count',
-                 text_auto=True
-    )
-
-    fig.update_layout(
-        title=weap_dist_title,
-        yaxis_title='',
-        xaxis_title='Number of attacks',
-        title_x=0.5
-    )
-    
-    return fig
-
-
-@callback(
-    Output('scatterplot-severity', 'figure'),
-    Input('crossfilter-year-slider', 'value'),
-    running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
-             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
-             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
-             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
-             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
-             (Output('toggle-metric', 'disabled'), True, False)])
-def update_chart_scatterplot_severity(year_range):
-    # get cached data
-    dff = filter_years(df_terror, year_range)
-
-    dff_grouped = dff.groupby(['country_txt', 'region_txt'])
-    dff_num_attack = dff_grouped['eventid'].count()
-    dff_freq = dff_grouped['nkill'].mean()
-
-    dff_prepared = all_countries.merge(dff_num_attack, left_on=['country_txt', 'region_txt'], right_index=True, how='left')
-    dff_prepared = dff_prepared.merge(dff_freq, left_on=['country_txt', 'region_txt'], right_index=True, how='left')
-    dff_prepared.columns = ['country_txt', 'region_txt', 'number_of_attacks', 'avg_kill']
-    dff_prepared['number_of_attacks'] = dff_prepared['number_of_attacks'].fillna(0).astype(int)
-    dff_prepared['avg_kill'] = dff_prepared['avg_kill'].fillna(0).round(4)
-
-    fig = go.Figure(data=go.Scatter(x=dff_prepared['number_of_attacks'],
-                                    y=dff_prepared['avg_kill'],
-                                    mode='markers',
-                                    text=dff_prepared['country_txt'])
-    )
-
-    fig.update_layout(title='Average casualties per attack per country', 
-                      xaxis_title='Number of attacks', 
-                      yaxis_title='Average casualties per attacks')
-
-    return fig
-
-
-@callback(
         Output('chart-parallel-sets', 'figure'),
         Input('crossfilter-year-slider', 'value'),
         Input('crossfilter-attacktype-dropdown', 'value'),
@@ -678,6 +582,68 @@ def update_chart_parallel_sets(year_range, attacktype, weapontype, targettype, g
     )
     
     return fig
+
+
+@callback(
+        Output('chart-beeswarm', 'figure'),
+        Input('crossfilter-year-slider', 'value'),
+        Input('crossfilter-attacktype-dropdown', 'value'),
+        Input('crossfilter-weapontype-dropdown', 'value'),
+        Input('crossfilter-targettype-dropdown', 'value'),
+        Input('crossfilter-group-dropdown', 'value'),
+        running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
+             (Output('toggle-metric', 'disabled'), True, False)])
+def update_chart_beeswarm(year_range, attacktype, weapontype, targettype, group):
+    dff = filter_data(df_terror, year_range=year_range, attacktype=None, weapontype=None, targettype=None, group=group)
+
+    # set value for color based on filters
+    dff['highlight'] = 1
+    if (weapontype or attacktype or targettype):
+        # define condition by boolean vector or True
+        weapon_condition = dff['weaptype1_txt'].isin(weapontype) if weapontype else True
+        attack_condition = dff['attacktype1_txt'].isin(attacktype) if attacktype else True
+        target_condition = dff['targtype1_txt'].isin(targettype) if targettype else True
+        condition = weapon_condition & attack_condition & target_condition
+
+        # set opacity based on condition
+        dff.loc[condition == True, 'highlight'] = 1
+        dff.loc[condition == False, 'highlight'] = 0
+
+    highlight_scale = {0:'rgba(211, 211, 211, 0.3)', 1:'rgba(65, 105, 225, 1)'}
+
+    fig = go.Figure(
+        px.strip(dff,
+                 x='total_casualties',
+                 y='targtype1_txt',
+                 color='highlight',
+                 color_discrete_map=highlight_scale,
+                 stripmode='overlay',
+                 width=700,
+                 height=800,
+        )
+    )
+
+    fig.update_traces(
+        jitter=1,
+        marker=dict(
+            size=8,
+            #opacity=0.5,
+            line=dict(width=0) # remove circle outline
+        )
+    )
+
+    fig.update_layout(
+        title='Which targets has the highest number of casualties?',
+        xaxis=dict(title='', showgrid=True),
+        yaxis=dict(title='', showgrid=True),
+    )   
+
+    return fig
+
 
 
 ###################
