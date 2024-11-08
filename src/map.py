@@ -332,7 +332,6 @@ def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype,
     ]
     
     # ensure that map is drawn in same state prior to update
-
     trigger = list(ctx.triggered_prop_ids.keys())
     if 'map-heatmap.clickData' in trigger:
         clicked_lat = clickData['points'][0]['lat']
@@ -588,7 +587,7 @@ def update_chart_parallel_sets(year_range, attacktype, weapontype, targettype, g
         dff.loc[condition == True, 'highlight'] = 1
         dff.loc[condition == False, 'highlight'] = 0
     
-    # define order of dimensions
+    # define order of dimensions based on number of attacks consistent with beeswarm
     attack_order = dff.groupby(['attacktype1_txt'])['attacktype1_txt'].count().sort_values(ascending=False).index
     weapon_order = dff.groupby(['weaptype1_txt'])['weaptype1_txt'].count().sort_values(ascending=False).index
     target_order = dff.groupby(['targtype1_txt'])['targtype1_txt'].count().sort_values(ascending=False).index
@@ -660,17 +659,27 @@ def update_chart_beeswarm(year_range, attacktype, weapontype, targettype, group)
         dff.loc[condition == True, 'highlight'] = 1
         dff.loc[condition == False, 'highlight'] = 0
 
-    highlight_scale = {0:'rgba(211, 211, 211, 0.3)', 1:'rgba(65, 105, 225, 1)'}
+    # ordering of categories based on number of attacks like parallel sets
+    target_order = (
+        dff.groupby(['targtype1_txt'])['total_casualties']
+        .count()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+
+    # colors for highlight
+    highlight_scale = {0:'rgba(211, 211, 211, 0.3)', 1:'rgba(65, 105, 225, 0.5)'}
 
     fig = go.Figure(
         px.strip(dff,
                  x='total_casualties',
                  y='targtype1_txt',
+                 category_orders={'targtype1_txt':target_order},
                  color='highlight',
                  color_discrete_map=highlight_scale,
                  stripmode='overlay',
-                 width=700,
-                 height=800,
+                 width=600,
+                 height=600,
         )
     )
 
@@ -684,11 +693,22 @@ def update_chart_beeswarm(year_range, attacktype, weapontype, targettype, group)
     )
 
     fig.update_layout(
-        title='Which targets has the highest number of casualties?',
-        xaxis=dict(title='', showgrid=True),
-        yaxis=dict(title='', showgrid=True),
+        title='Which attacks have the highest number of casualties?',
+        xaxis=dict(
+            title='',
+            showgrid=True,
+            gridcolor='lightgray',
+            gridwidth=0.5
+        ),
+        yaxis=dict(
+            title='',
+            showgrid=True,
+            gridcolor='lightgray',
+            gridwidth=0.5
+        ),
         showlegend=False,
-    )   
+        plot_bgcolor='white'
+    )
 
     return fig
 
