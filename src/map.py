@@ -7,6 +7,7 @@ import plotly.express as px
 import webbrowser
 from threading import Timer
 import os
+from dash.exceptions import PreventUpdate
 
 import plotly.graph_objects as go
 
@@ -75,11 +76,18 @@ def filter_years(df, year_range):
     df_filtered = df[(df['iyear'] >= year_lower) & (df['iyear'] <= year_upper)]
     return df_filtered
 
+@cache.memoize()
+def filter_casualties(df, casualty_lower, casualty_upper):
+    if casualty_lower == None or casualty_upper == None:
+        return df
+    df_filtered = df[(df['total_casualties'] >= casualty_lower) & (df['total_casualties'] <= casualty_upper)]
+    return df_filtered
 
 @cache.memoize()
-def filter_data(df, year_range, attacktype, weapontype, targettype, group):
+def filter_data(df, year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group):
     # filter years
     df_filtered = filter_years(df, year_range)
+    df_filtered = filter_casualties(df_filtered, casualty_lower, casualty_upper)
 
     # filter attack
     if attacktype is not None:
@@ -109,17 +117,19 @@ def filter_data(df, year_range, attacktype, weapontype, targettype, group):
     Output('crossfilter-summary-container', 'children'),
     State('crossfilter-summary-dropdown', 'value'),
     Input('crossfilter-year-slider', 'value'),
+    Input('crossfilter-casualty-lower', 'value'),
+    Input('crossfilter-casualty-upper', 'value'),
     Input('crossfilter-attacktype-dropdown', 'value'),
     Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
     Input('crossfilter-group-dropdown', 'value'),
 )
-def update_summary_dropdown(summary_selections, year_range, attacktype, weapontype, targettype, group):
+def update_summary_dropdown(summary_selections, year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group):
     # filter
     df_notna = df_terror[df_terror['summary'].notna()]
-    df_filtered = filter_data(df_notna, year_range, attacktype, weapontype, targettype, group)
+    df_filtered = filter_data(df_notna, year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group)
 
-    if len(df_filtered) > 5000:
+    if len(df_filtered) > 10000:
         options = [{'label': 'Please apply more filters to narrow down your search...', 'value': 'none', 'disabled': True}]
     else:
         # Find total casualties for each summary
@@ -150,10 +160,13 @@ def update_summary_dropdown(summary_selections, year_range, attacktype, weaponty
     Output('crossfilter-group-container', 'children'),
     State('crossfilter-group-dropdown', 'value'),
     Input('crossfilter-year-slider', 'value'),
+    Input('crossfilter-casualty-lower', 'value'),
+    Input('crossfilter-casualty-upper', 'value'),
 )
-def update_group_dropdown(group_selections, year_range):
+def update_group_dropdown(group_selections, year_range, casualty_lower, casualty_upper):
     # filter years
     df_filtered = filter_years(df_terror, year_range)
+    df_filtered = filter_casualties(df_filtered, casualty_lower, casualty_upper)
 
     # count number of attacks for groups
     groups_counts = df_filtered.groupby(['gname'])['gname'].count()
@@ -175,6 +188,18 @@ def update_group_dropdown(group_selections, year_range):
         maxHeight=200,
         optionHeight=35
     )
+
+@callback(
+    Output('crossfilter-casualty-upper', 'value'),
+    Input('crossfilter-casualty-lower', 'value'),
+    State('crossfilter-casualty-upper', 'value')
+)
+def adjust_upper_casualty_input(casualty_lower, casualty_upper):
+    # If casualty_lower is higher than casualty_upper, set casualty_upper to max_casualties
+    if casualty_lower is not None and casualty_upper is not None and casualty_lower > casualty_upper:
+        return df_terror['total_casualties'].max()
+    # No update if conditions aren't met
+    raise PreventUpdate
 
 
 ###################
@@ -198,9 +223,30 @@ app.layout = html.Div([
             )
         ], style={'width': '86%', 'padding': '20px', 'margin-left': '-25px'}),
 
+        html.Div([
+            html.Label("Specify Casualty Range:"),
+            dcc.Input(
+                id='crossfilter-casualty-lower',
+                type='number',
+                placeholder='Lower bound',
+                min=0,
+                max=df_terror['total_casualties'].max(),
+                value=0,
+                style={'width': '40%', 'margin-right': '10px'}
+            ),
+            dcc.Input(
+                id='crossfilter-casualty-upper',
+                type='number',
+                placeholder='Upper bound',
+                min=0,
+                value=df_terror['total_casualties'].max(),
+                style={'width': '40%'}
+            )
+        ], style={'width': '86%', 'padding': '20px', 'margin-left': '-25px'}),
+
         html.Div(
             id='crossfilter-summary-container',
-            children=update_summary_dropdown(None, [2015, 2020], None, None, None, None),
+            children=update_summary_dropdown(None, [2015, 2020], 0, df_terror['total_casualties'].max(), None, None, None, None),
             style={'width': '80%', 'padding': '5px', 'whiteSpace': 'nowrap'}
         ),
 
@@ -252,7 +298,7 @@ app.layout = html.Div([
         # can choose multiple types and can't clear value to being empty
         html.Div(
             id='crossfilter-group-container',
-            children=update_group_dropdown(None, [2015, 2020]),
+            children=update_group_dropdown(None, [2015, 2020], 0, df_terror['total_casualties'].max()),
             style={'width': '80%', 'padding': '5px'}
         ),
 
@@ -333,6 +379,8 @@ def update_global_clickdata(map_clickData, beeswarm_clickData):
     State('map-state', 'data'), # can read state but can't be triggered by state change
     Input('global-clickData', 'data'),
     Input('crossfilter-year-slider', 'value'),
+    Input('crossfilter-casualty-lower', 'value'),
+    Input('crossfilter-casualty-upper', 'value'),
     Input('crossfilter-attacktype-dropdown', 'value'),
     Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
@@ -345,9 +393,9 @@ def update_global_clickdata(map_clickData, beeswarm_clickData):
              (Output('crossfilter-group-dropdown', 'disabled'), True, False),
              (Output('toggle-metric', 'disabled'), True, False)],
     prevent_initial_call=True)
-def update_map_heatmap(map_state, clickData, year_range, attacktype, weapontype, targettype, group, metric):
+def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group, metric):
     # get cached data
-    dff = filter_data(df_terror, year_range, attacktype, weapontype, targettype, group)
+    dff = filter_data(df_terror, year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group)
     
     if metric == 'casualties':
         z_value = 'total_casualties'
@@ -592,6 +640,8 @@ def update_info_box(clickData):
 @callback(
         Output('chart-parallel-sets', 'figure'),
         Input('crossfilter-year-slider', 'value'),
+        Input('crossfilter-casualty-lower', 'value'),
+        Input('crossfilter-casualty-upper', 'value'),
         Input('crossfilter-attacktype-dropdown', 'value'),
         Input('crossfilter-weapontype-dropdown', 'value'),
         Input('crossfilter-targettype-dropdown', 'value'),
@@ -602,9 +652,9 @@ def update_info_box(clickData):
              (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-group-dropdown', 'disabled'), True, False),
              (Output('toggle-metric', 'disabled'), True, False)])
-def update_chart_parallel_sets(year_range, attacktype, weapontype, targettype, group):
+def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group):
     #dff = filter_years(df_terror, year_range)
-    dff = filter_data(df_terror, year_range, attacktype=None, weapontype=None, targettype=None, group=group)
+    dff = filter_data(df_terror, year_range, casualty_lower, casualty_upper, None, None, None, group)
 
     # set value for color based on filters
     dff['highlight'] = 1
@@ -677,7 +727,7 @@ def update_chart_parallel_sets(year_range, attacktype, weapontype, targettype, g
              (Output('crossfilter-group-dropdown', 'disabled'), True, False),
              (Output('toggle-metric', 'disabled'), True, False)])
 def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targettype, group):
-    dff = filter_data(df_terror, year_range=year_range, attacktype=None, weapontype=None, targettype=None, group=group)
+    dff = filter_data(df_terror, year_range, None, None, None, None, None, group)
     
     # set default highlight
     dff['highlight'] = 1
