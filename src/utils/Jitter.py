@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+np.random.seed(42)
 
 def add_jitter_coordinates(df, latitude_col, longitude_col, latitude_jitter_col, longitude_jitter_col, jitter_amount=0.0005):
     np.random.seed(42)

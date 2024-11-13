@@ -1,4 +1,5 @@
 from utils.Jitter import *
+from constants import default
 from dash import Dash, html, dcc, ctx, Input, Output, State, callback, no_update
 import dash_core_components as dcc
 from flask_caching import Cache
@@ -8,11 +9,7 @@ import webbrowser
 from threading import Timer
 import os
 from dash.exceptions import PreventUpdate
-
 import plotly.graph_objects as go
-import numpy as np
-np.random.seed(42)
-
 
 ###################
 #  setup app
@@ -209,155 +206,139 @@ def adjust_upper_casualty_input(casualty_lower, casualty_upper):
 ###################
 # setup layout
 app.layout = html.Div([
-    dcc.Store(
-        id='global-clickData'
-    ),
+    dcc.Store(id='global-clickData'),
 
-    # Slider and Dropdown on the left side, above the heatmap
+    # Top blue box with title and filters in 3 columns
     html.Div([
+        html.H3("Terrorism Data Visualization", style={'color': 'white', 'text-align': 'center'}),
         html.Div([
-            dcc.RangeSlider(
-                id='crossfilter-year-slider',
-                min=df_terror['iyear'].min(),
-                max=df_terror['iyear'].max(),
-                step=None,
-                value=[2015, 2020],  # default range
-                marks={str(year): str(year) if year % 5 == 0 else '' for year in df_terror['iyear'].unique()},
-                allowCross=False  # Prevents crossing of the two handles
-            )
-        ], style={'width': '86%', 'padding': '20px', 'margin-left': '-25px'}),
+            # Column 1
+            html.Div([
+                dcc.RangeSlider(
+                    id='crossfilter-year-slider',
+                    min=df_terror['iyear'].min(),
+                    max=df_terror['iyear'].max(),
+                    step=None,
+                    value=default.year_range.value,
+                    marks={str(year): str(year) if year % 5 == 0 else '' for year in df_terror['iyear'].unique()},
+                    allowCross=False
+                ),
 
-        html.Div([
-            html.Label("Specify Casualty Range:"),
-            dcc.Input(
-                id='crossfilter-casualty-lower',
-                type='number',
-                placeholder='Lower bound',
-                min=0,
-                max=df_terror['total_casualties'].max(),
-                value=0,
-                style={'width': '40%', 'margin-right': '10px'}
-            ),
-            dcc.Input(
-                id='crossfilter-casualty-upper',
-                type='number',
-                placeholder='Upper bound',
-                min=0,
-                value=df_terror['total_casualties'].max(),
-                style={'width': '40%'}
-            )
-        ], style={'width': '86%', 'padding': '20px', 'margin-left': '-25px'}),
+                html.Label("Specify Casualty Range:"),
+                dcc.Input(
+                    id='crossfilter-casualty-lower',
+                    type='number',
+                    placeholder='Lower bound',
+                    min=0,
+                    max=df_terror['total_casualties'].max(),
+                    value=0,
+                    style={'width': '45%', 'margin-right': '5px'}
+                ),
+                dcc.Input(
+                    id='crossfilter-casualty-upper',
+                    type='number',
+                    placeholder='Upper bound',
+                    min=0,
+                    value=df_terror['total_casualties'].max(),
+                    style={'width': '45%'}
+                )
+            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
 
-        html.Div(
-            id='crossfilter-summary-container',
-            children=update_summary_dropdown(None, [2015, 2020], 0, df_terror['total_casualties'].max(), None, None, None, None),
-            style={'width': '80%', 'padding': '5px', 'whiteSpace': 'nowrap'}
-        ),
+            # Column 2
+            html.Div([
+                html.Div(
+                    id='crossfilter-summary-container',
+                    children=update_summary_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max(), None, None, None, None),
+                    style={'padding': '10px'}
+                ),
 
-        html.Div(
-            dcc.Dropdown(
-                id='crossfilter-attacktype-dropdown',
-                options=list(df_terror['attacktype1_txt'].unique()),
-                value=None,
-                placeholder='Show All Attack Types',
-                multi=True,
-                clearable=False,
-                maxHeight=200,
-                optionHeight=35
-            ),
-            style={'width': '80%', 'padding': '5px'}
-        ),
+                dcc.RadioItems(
+                    id='toggle-metric',
+                    options=[
+                        {'label': 'Show Number of Attacks', 'value': 'attacks'},
+                        {'label': 'Show Total Casualties', 'value': 'casualties'}
+                    ],
+                    value='attacks'
+                )
+            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
 
-        html.Div(
-            dcc.Dropdown(
-                id='crossfilter-weapontype-dropdown',
-                options=list(df_terror['weaptype1_txt'].unique()),
-                value=None,
-                placeholder='Show All Weapon Types',
-                multi=True,
-                clearable=False,
-                maxHeight=200,
-                optionHeight=35
-            ),
-            style={'width': '80%', 'padding': '5px'}
-        ),
+            # Column 3
+            html.Div([
+                dcc.Dropdown(
+                    id='crossfilter-attacktype-dropdown',
+                    options=[{'label': i, 'value': i} for i in df_terror['attacktype1_txt'].unique()],
+                    value=None,
+                    placeholder='Show All Attack Types',
+                    multi=True,
+                    clearable=False
+                ),
+                dcc.Dropdown(
+                    id='crossfilter-weapontype-dropdown',
+                    options=[{'label': i, 'value': i} for i in df_terror['weaptype1_txt'].unique()],
+                    value=None,
+                    placeholder='Show All Weapon Types',
+                    multi=True,
+                    clearable=False
+                ),
+                dcc.Dropdown(
+                    id='crossfilter-targettype-dropdown',
+                    options=[{'label': i, 'value': i} for i in df_terror['targtype1_txt'].unique()],
+                    value=None,
+                    placeholder='Show All Target Types',
+                    multi=True,
+                    clearable=False
+                ),
+                html.Div(
+                    id='crossfilter-group-container',
+                    children=update_group_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max()),
+                    style={'padding': '10px'}
+                )
+            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'})
+        ], style={'display': 'flex', 'flex-direction': 'row'})
+    ], style={'background-color': default.highlight_color.value, 'padding': '20px', 'color': 'white'}),
 
-        # set dropdown to choose target type
-        # can choose multiple types and can't clear value to being empty
-        html.Div(
-            dcc.Dropdown(
-                id='crossfilter-targettype-dropdown',
-                options=list(df_terror['targtype1_txt'].unique()),
-                value=None,
-                placeholder='Show All Target Types',
-                multi=True,
-                clearable=False,
-                maxHeight=200,
-                optionHeight=35
-            ),
-            style={'width': '80%', 'padding': '5px'}
-        ),
-
-        # set dropdown to choose group
-        # can choose multiple types and can't clear value to being empty
-        html.Div(
-            id='crossfilter-group-container',
-            children=update_group_dropdown(None, [2015, 2020], 0, df_terror['total_casualties'].max()),
-            style={'width': '80%', 'padding': '5px'}
-        ),
-
-        html.Div([
-            dcc.RadioItems(
-                id='toggle-metric',
-                options=[
-                    {'label': 'Show Number of Attacks', 'value': 'attacks'},
-                    {'label': 'Show Total Casualties', 'value': 'casualties'}
-                ],
-                value='attacks', # default
-                inline=False
-            )
-        ], style={'padding': '10px', 'display': 'inline-block'}),
-
-        # Heatmap below the Slider and Dropdown
-        html.Div([
-            dcc.Store(id='map-state', data={'zoom':0, 'center':dict(lat=0, lon=0)}),
-            dcc.Graph(
-                id='map-heatmap',
-                hoverData=None,
-                clickData=None
-            )
-        ], style={'padding': '0', 'width': '100%', 'position': 'relative', 'left': '-50px'}),  # Keep the heatmap shifted to the left
-
-        html.Div([
-            dcc.Graph(
-                id='chart-parallel-sets'
-            )
-        ], style={'padding': '0', 'width': '100%', 'position': 'relative'})
-    ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '0 10px'}),  # Reverted the padding for left container
-
-    # Right side - infobox and bar chart stacked vertically
+    # Main charts
     html.Div([
-        # Infobox at the top with scrolling enabled
+        # Column 1
         html.Div([
-            html.H4("Selected Attack Information", id="info-title"),
-            html.Div(id='info-box', style={
-                'padding': '10px',
-                'border': '1px solid black',
-                'height': '200px',
-                'max-height': '200px',  # Ensure the height is fixed
-                'overflow-y': 'scroll'  # Enable scrolling
-            })
-        ], style={'padding': '0 20'}),
+            # heatmap
+            html.Div([
+                dcc.Store(id='map-state', data={'zoom': default.zoom.value, 'center': dict(lat=default.lat.value, lon=default.lon.value)}),
+                dcc.Graph(id='map-heatmap', hoverData=None, clickData=None)
+            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top'}),
 
+            # parallel sets
+            html.Div([
+                dcc.Graph(id='chart-parallel-sets')
+            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '-50px', 'margin-left': '0px'}),
+        ], style={'display': 'flex', 'flex-direction': 'column', 'margin-bottom': '0px', 'width':'50%', 'min-width':'50%'}),
+        # end of column 1
+
+        # Column 2
         html.Div([
-            dcc.Graph(
-                id='chart-beeswarm',
-                clickData=None,
-                hoverData=None
-            )
-        ], style={'padding': '0', 'width': '100%', 'position': 'relative'})
-    ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top'})  # Right side remains the same width
-], style={'display': 'flex', 'flex-direction': 'row', 'margin': '0', 'padding': '0'})  # Set margin and padding to 0 for the entire layout
+            # info box
+            html.Div([
+                html.H4("Selected Attack Information", id="info-title"),
+                html.Div(id='info-box', style={
+                    'padding': '10px',
+                    'border': '1px solid black',
+                    'width': '90%',
+                    'height': '200px',
+                    'overflow-y': 'scroll'
+                })
+            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top'}),
+
+            # beeswarm
+            html.Div([
+                dcc.Graph(id='chart-beeswarm', clickData=None, hoverData=None)
+            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '0px'})
+        ], style={'display': 'flex', 'flex-direction': 'column', 
+                  'margin-top': '0px', 'width':'50%', 'min-width':'50%', 
+                  'background_color': default.plot_bgcolor.value})
+        # end of column 2
+
+    ], style={'display': 'flex', 'align-items': 'flex-start', 'margin-top': '5px'})
+])
 
 
 ###################
@@ -408,13 +389,13 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     if metric == 'casualties':
         z_value = 'total_casualties'
         max_density = 50
-        colorbar_title = "Total Casualties"
+        colorbar_title = "Casualties"
     else:
         z_value = None
         max_density = 50
-        colorbar_title = "Number of Attacks"
+        colorbar_title = "Attacks"
 
-   # Viridis
+    # Viridis
     color_scale = [
         [0.0, "rgba(0, 0, 0, 0)"],
         [0.01, "#440154"],  # Dark purple
@@ -433,7 +414,6 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
         if clickData['trigger'] != 'map-heatmap.clickData':
             clicked_lat = clickData['data'][1]
             clicked_lon = clickData['data'][2]
-            #zoom = 7
             center = {'lat':clicked_lat, 'lon':clicked_lon}
     
 
@@ -470,16 +450,31 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
 
     # Update layout to add a title to the legend
     fig.update_layout(
+        title=dict(
+            text="Where do attacks occur?",
+            yref="container",
+            yanchor="top",
+            y=0.85,
+            xref="paper",
+            xanchor="center",
+            x=0.5,
+            font=default.title_dict.value
+        ),
         coloraxis_colorbar=dict(
-            title=colorbar_title,  # Set the title for the colorbar (legend)
-            titleside="right",  # Position the title on the right side
+            title=dict(
+                text=colorbar_title,
+                font=default.label_dict.value),
+            titleside="right",
         ),
         map=dict(
             style="open-street-map",  # "carto-positron" or "satellite-streets"
             center=center,
             zoom=zoom
         ),
+        width=700,
+        height=500
     )
+
 
     # draw lines to related attacks and draw clicked point
     if clickData['data']:
@@ -517,7 +512,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                     mode='markers',
                     lon=[clicked_lon],
                     lat=[clicked_lat],
-                    marker=dict(size=10, color='red'),
+                    marker=dict(size=10, color=default.selection_color.value),
                     opacity=0.8,
                     hoverinfo='skip', # no hover info
                     showlegend=False, # don't show in legend
@@ -706,8 +701,8 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
     ]
 
     # set color scale for highlights
-    hightlight_scale = [[0, 'rgba(211, 211, 211, 0.3)'], # light grey not highlighted
-                        [1, 'rgba(65, 105, 225, 1)']] # blue when filters
+    hightlight_scale = [[0, default.background_color.value], # light grey not highlighted
+                        [1, default.highlight_color.value]] # blue when filters
 
     # parallel categories
     fig = go.Figure(
@@ -716,21 +711,33 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
             line=dict(
                 color=dff['highlight'], # color based on level of highlight
                 colorscale=hightlight_scale,
-                shape='hspline' # smooth curves rather than linear lines
+                shape='hspline', # smooth curves rather than linear lines
             ),
             hoveron='category',  # show hover info for one category only
             hoverinfo=None, # enable hover
-            labelfont=dict(color='rgba(0, 0, 0, 1)'),
-            tickfont=dict(color='rgba(0, 0, 0, 1)'),
-            sortpaths='forward'
+            labelfont=default.label_dict.value,
+            tickfont=dict(color=default.font_color.value, family=default.font_type.value, size=10, weight=10),
+            sortpaths='forward',
         )
     )
 
     # Update layout for improved readability and consistency
     fig.update_layout(
-        title='How are weapons, targets, and attacks related?',
-        font=dict(size=12),
-        plot_bgcolor='white'
+        title=dict(
+            text="How are attacks, weapons and targets related?",
+            yref="container",
+            yanchor="top",
+            y=0.9,
+            xref="paper",
+            xanchor="center",
+            x=0.5,
+            font=default.title_dict.value
+        ),
+        font=default.label_dict.value,
+        margin=dict(l=150, r=100), # ensure labels can be read
+        plot_bgcolor=default.plot_bgcolor.value,
+        width=700,
+        height=500
     )
     
     return fig
@@ -785,7 +792,9 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
         dff = dff[dff['highlight'] != 2]  # Exclude selected point(s) for separate trace
 
     # Set color mapping
-    highlight_scale = {0: 'rgba(211, 211, 211, 0.3)', 1: 'rgba(65, 105, 225, 0.5)', 2: 'rgba(225, 0, 0, 0.5)'}
+    highlight_scale = {0: default.background_color.value, 
+                       1: default.highlight_color.value, 
+                       2: default.selection_color.value}
 
     # Create figure and add traces
     fig = go.Figure()
@@ -814,7 +823,7 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
                 x=selected_point['total_casualties'],
                 y=selected_point['y_jittered'],
                 mode='markers',
-                marker=dict(color='rgba(225, 0, 0, 0.5)', size=8),
+                marker=dict(color=default.selection_color.value, size=8),
                 name="",
                 customdata=selected_point[customdata_list].to_numpy(),
                 hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
@@ -827,23 +836,40 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
 
     # Update layout
     fig.update_layout(
-        title='Which attacks have the highest number of casualties?',
+        title=dict(
+            text="Which attacks have the highest number of casualties?",
+            yref="container",
+            yanchor="top",
+            y=0.9,
+            xref="paper",
+            xanchor="center",
+            x=0.5,
+            font=default.title_dict.value
+        ),
         xaxis=dict(
+            title=dict(
+                text='Number of casualties',
+                font=default.label_dict.value
+            ),
             showgrid=True, 
             gridcolor='lightgray', 
             gridwidth=0.5),
         yaxis=dict(
             tickvals=list(category_to_y.values()),
             ticktext=list(category_to_y.keys()),
-            title='Target Type',
+            title=dict(
+                text='Target Type',
+                font=default.label_dict.value
+            ),
             showgrid=True,
             gridcolor='lightgray',
             gridwidth=0.5
         ),
+        font=default.label_dict.value,
         showlegend=False,
-        plot_bgcolor='white',
-        width=600,
-        height=900
+        plot_bgcolor=default.plot_bgcolor.value,
+        width=700,
+        height=700
     )
 
     return fig
