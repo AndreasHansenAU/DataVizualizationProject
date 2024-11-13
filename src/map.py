@@ -448,8 +448,13 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
             zmin=0,
             zmax=max_density,
             colorscale=color_scale,
-            colorbar=dict(title=colorbar_title),
-            showscale=True
+                        colorbar=dict(
+                title=colorbar_title,
+                tickvals=[0, 10, 20, 30, 40, 50],   # Define tick values
+                ticktext=["0", "10", "20", "30", "40", "50+"],  # Custom tick labels
+            ),
+            showscale=True,
+            name="",
         )
     )
 
@@ -792,6 +797,7 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
             y=dff['y_jittered'],
             mode='markers',
             marker=dict(color=dff['highlight'].map(highlight_scale), size=8),
+            name="",
             customdata=dff[customdata_list].to_numpy(),
             hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
                           "Group: %{customdata[25]}<br>"
@@ -809,6 +815,7 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
                 y=selected_point['y_jittered'],
                 mode='markers',
                 marker=dict(color='rgba(225, 0, 0, 0.5)', size=8),
+                name="",
                 customdata=selected_point[customdata_list].to_numpy(),
                 hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
                               "Group: %{customdata[25]}<br>"
