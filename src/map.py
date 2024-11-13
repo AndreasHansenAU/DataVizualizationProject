@@ -403,22 +403,23 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     
     if metric == 'casualties':
         z_value = 'total_casualties'
-        max_density = 200
+        max_density = 50
         colorbar_title = "Total Casualties"
     else:
         z_value = None
-        max_density = 200
+        max_density = 50
         colorbar_title = "Number of Attacks"
 
-    # Plotly3 color scale
+   # Viridis
     color_scale = [
-        [0.0,  "rgba(0, 0, 0, 0)"],
-        [0.01, "#0508b8"],
-        [0.3,  "#6b1cfb"],
-        [0.6,  "#dd2bfd"],
-        [1.0,  "#fec3fe"]
+        [0.0, "rgba(0, 0, 0, 0)"],
+        [0.01, "#440154"],  # Dark purple
+        [0.25, "#3b528b"],  # Medium blue
+        [0.5, "#21918c"],  # Green
+        [0.75, "#5ec962"],  # Yellow-green
+        [1.0, "#fde725"]   # Yellow
     ]
-    
+
     # ensure that map is drawn in same state prior to update
     trigger = list(ctx.triggered_prop_ids.keys())
     if 'global-clickData.data' in trigger and clickData is not None:
@@ -429,19 +430,21 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     else:
         zoom = map_state['zoom']
         center = map_state['center']
-
-    # Create a scatter_geo plot, simulating a heatmap by coloring points based on density
-    fig = px.density_map(dff,
-                         lat="latitude_jitter",
-                         lon="longitude_jitter",
-                         z=z_value,
-                         radius=10,
-                         center=center,
-                         zoom=zoom,
-                         map_style="open-street-map", # "satellite-streets" #"open-street-map",
-                         color_continuous_scale=color_scale,
-                         opacity=1,
-                         range_color=(0, max_density)
+    
+    fig = go.Figure()
+    fig.add_trace(
+        go.Densitymap(
+            lat=dff['latitude_jitter'],
+            lon=dff['longitude_jitter'],
+            z=dff[z_value] if z_value else None,
+            radius=10,
+            opacity=1,
+            zmin=0,
+            zmax=max_density,
+            colorscale=color_scale,
+            colorbar=dict(title=colorbar_title),
+            showscale=True
+        )
     )
 
     # update hover box
@@ -459,7 +462,12 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
         coloraxis_colorbar=dict(
             title=colorbar_title,  # Set the title for the colorbar (legend)
             titleside="right",  # Position the title on the right side
-        )
+        ),
+        map=dict(
+            style="open-street-map",  # "carto-positron" or "satellite-streets"
+            center=center,
+            zoom=zoom
+        ),
     )
 
     # draw lines to related attacks and draw clicked point
@@ -486,7 +494,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                         opacity=0.8,
                         name=f'Related {idx+1}',
                         hoverinfo='skip', # no hover info
-                        showlegend=False # don't show in legend
+                        showlegend=False, # don't show in legend
                     ),
                 )
         # plot clicked point if it's still in the filtered data
@@ -501,9 +509,10 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                     marker=dict(size=10, color='red'),
                     opacity=0.8,
                     hoverinfo='skip', # no hover info
-                    showlegend=False # don't show in legend
+                    showlegend=False, # don't show in legend
                 ),
             )
+    
     return fig
 
 
@@ -739,7 +748,7 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
     # apply jitter
     dff['y_jittered'] = dff['targtype1_txt'].map(category_to_y) + dff['beeswarm_jitter']
     
-    
+
     # Set default highlight and define filters
     dff['highlight'] = 1
     if weapontype or attacktype or targettype:
