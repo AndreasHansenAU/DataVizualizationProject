@@ -1,4 +1,4 @@
-from utils.Jitter import add_jitter
+from utils.Jitter import *
 from dash import Dash, html, dcc, ctx, Input, Output, State, callback, no_update
 import dash_core_components as dcc
 from flask_caching import Cache
@@ -10,6 +10,8 @@ import os
 from dash.exceptions import PreventUpdate
 
 import plotly.graph_objects as go
+import numpy as np
+np.random.seed(42)
 
 
 ###################
@@ -39,7 +41,8 @@ cache = Cache(app.server, config={
 @cache.memoize()
 def read_data_terror():
     df = pd.read_csv("src/data/globalterrorism_2020_cleaned.csv")
-    df_jittered = add_jitter(df, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
+    df_jittered = add_jitter_coordinates(df, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
+    df_jittered = add_jitter_beeswarm(df_jittered, jitter_amount=0.2)
     return df_jittered
 
 
@@ -348,7 +351,8 @@ app.layout = html.Div([
         html.Div([
             dcc.Graph(
                 id='chart-beeswarm',
-                clickData=None
+                clickData=None,
+                hoverData=None
             )
         ], style={'padding': '0', 'width': '100%', 'position': 'relative'})
     ], style={'width': '49%', 'display': 'inline-block', 'vertical-align': 'top'})  # Right side remains the same width
@@ -418,8 +422,6 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     # ensure that map is drawn in same state prior to update
     trigger = list(ctx.triggered_prop_ids.keys())
     if 'global-clickData.data' in trigger and clickData is not None:
-        #clicked_lat = clickData['points'][0]['lat']
-        #clicked_lon = clickData['points'][0]['lon']
         clicked_lat = clickData[1]
         clicked_lon = clickData[2]
         zoom = 7
@@ -434,8 +436,8 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                          lon="longitude_jitter",
                          z=z_value,
                          radius=10,
-                         center=center, #dict(lat=0, lon=0)
-                         zoom=zoom, # 0
+                         center=center,
+                         zoom=zoom,
                          map_style="open-street-map", # "satellite-streets" #"open-street-map",
                          color_continuous_scale=color_scale,
                          opacity=1,
@@ -463,9 +465,6 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     # draw lines to related attacks and draw clicked point
     if clickData:
         # get current point
-        #clicked_lat = clickData['points'][0]['lat']
-        #clicked_lon = clickData['points'][0]['lon']
-        #related = clickData['points'][0]['customdata'][14]
         clicked_lat = clickData[1]
         clicked_lon = clickData[2]
         related = clickData[14]
@@ -491,7 +490,6 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                     ),
                 )
         # plot clicked point if it's still in the filtered data
-        #clicked_eventid = clickData['points'][0]['customdata'][0]
         clicked_eventid = clickData[0]
         is_eventid_present = dff['eventid'].isin([clicked_eventid]).any()
         if is_eventid_present:
@@ -520,8 +518,6 @@ def update_map_state(relayoutData, clickData):
 
     # if triggered by click then update state to clicked points location
     if 'global-clickData.data' in trigger and clickData is not None:
-        #clicked_lat = clickData['points'][0]['lat']
-        #clicked_lon = clickData['points'][0]['lon']
         clicked_lat = clickData[1]
         clicked_lon = clickData[2]
         return {'zoom': 7,
@@ -531,6 +527,7 @@ def update_map_state(relayoutData, clickData):
     if 'map-heatmap.relayoutData' in trigger:
         return {'zoom': relayoutData.get('map.zoom'), 
                 'center': relayoutData.get('map.center')}
+    
     return no_update
 
 
@@ -728,87 +725,97 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
              (Output('toggle-metric', 'disabled'), True, False)])
 def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targettype, group):
     dff = filter_data(df_terror, year_range, None, None, None, None, None, group)
-    
-    # set default highlight
-    dff['highlight'] = 1
 
-    # change highlight based on filters
-    if (weapontype or attacktype or targettype):
-        # define condition by boolean vector or True
+    # Sort and map categories
+    category_order = (
+        dff.groupby('targtype1_txt')['total_casualties']
+        .count()
+        .sort_values(ascending=True)
+        .index
+        .tolist()
+    )
+    category_to_y = {cat: i for i, cat in enumerate(category_order)}
+
+    # apply jitter
+    dff['y_jittered'] = dff['targtype1_txt'].map(category_to_y) + dff['beeswarm_jitter']
+    
+    
+    # Set default highlight and define filters
+    dff['highlight'] = 1
+    if weapontype or attacktype or targettype:
         weapon_condition = dff['weaptype1_txt'].isin(weapontype) if weapontype else True
         attack_condition = dff['attacktype1_txt'].isin(attacktype) if attacktype else True
         target_condition = dff['targtype1_txt'].isin(targettype) if targettype else True
         condition = weapon_condition & attack_condition & target_condition
-        # set opacity based on condition
-        dff.loc[condition == False, 'highlight'] = 0
-    
-    # change highlight based on clickdata
+        dff.loc[~condition, 'highlight'] = 0
+
+    # Highlight based on clickData
+    selected_point = None
     if clickData is not None:
-        clicked_eventid = clickData[0]
-        condition = dff['eventid'] == clicked_eventid
-        dff.loc[condition == True, 'highlight'] = 2
+        clicked_eventid = clickData[0]  # Adjust as needed
+        dff.loc[dff['eventid'] == clicked_eventid, 'highlight'] = 2
+        selected_point = dff[dff['highlight'] == 2]
+        dff = dff[dff['highlight'] != 2]  # Exclude selected point(s) for separate trace
 
-    # ordering of categories based on number of attacks like parallel sets
-    target_order = (
-        dff.groupby(['targtype1_txt'])['total_casualties']
-        .count()
-        .sort_values(ascending=False)
-        .index.tolist()
-    )
+    # Set color mapping
+    highlight_scale = {0: 'rgba(211, 211, 211, 0.3)', 1: 'rgba(65, 105, 225, 0.5)', 2: 'rgba(225, 0, 0, 0.5)'}
 
-    # colors for highlight
-    highlight_scale = {0:'rgba(211, 211, 211, 0.3)', 
-                       1:'rgba(65, 105, 225, 0.5)',
-                       2:'rgba(225, 0, 0, 0.5)'}
+    # Create figure and add traces
+    fig = go.Figure()
 
-    fig = go.Figure(
-        px.strip(dff,
-                 x='total_casualties',
-                 y='targtype1_txt',
-                 category_orders={'targtype1_txt':target_order},
-                 color='highlight',
-                 color_discrete_map=highlight_scale,
-                 stripmode='overlay',
-                 width=600,
-                 height=600,
+    # Non-selected points trace
+    fig.add_trace(
+        go.Scatter(
+            x=dff['total_casualties'],
+            y=dff['y_jittered'],
+            mode='markers',
+            marker=dict(color=dff['highlight'].map(highlight_scale), size=8),
+            customdata=dff[customdata_list].to_numpy(),
+            hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
+                          "Group: %{customdata[25]}<br>"
+                          "Attack type: %{customdata[15]}<br>"
+                          "Weapon type: %{customdata[18]}<br>"
+                          "Target type: %{customdata[20]}<br>"
         )
     )
 
-    fig.update_traces(
-        jitter=1,
-        marker=dict(
-            size=8,
-            #opacity=0.5,
-            line=dict(width=0) # remove circle outline
+    # Selected point(s) trace, if any
+    if selected_point is not None:
+        fig.add_trace(
+            go.Scatter(
+                x=selected_point['total_casualties'],
+                y=selected_point['y_jittered'],
+                mode='markers',
+                marker=dict(color='rgba(225, 0, 0, 0.5)', size=8),
+                customdata=selected_point[customdata_list].to_numpy(),
+                hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
+                              "Group: %{customdata[25]}<br>"
+                              "Attack type: %{customdata[15]}<br>"
+                              "Weapon type: %{customdata[18]}<br>"
+                              "Target type: %{customdata[20]}<br>"
+            )
         )
-    )
 
+    # Update layout
     fig.update_layout(
         title='Which attacks have the highest number of casualties?',
         xaxis=dict(
-            title='',
-            showgrid=True,
-            gridcolor='lightgray',
-            gridwidth=0.5
-        ),
+            showgrid=True, 
+            gridcolor='lightgray', 
+            gridwidth=0.5),
         yaxis=dict(
-            title='',
+            tickvals=list(category_to_y.values()),
+            ticktext=list(category_to_y.keys()),
+            title='Target Type',
             showgrid=True,
             gridcolor='lightgray',
             gridwidth=0.5
         ),
         showlegend=False,
-        plot_bgcolor='white'
+        plot_bgcolor='white',
+        width=600,
+        height=900
     )
-
-    # update hover box
-    fig.update_traces(customdata=dff[customdata_list].values,
-                      # update hover box
-                      hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
-                                    "Group: %{customdata[25]}<br>"
-                                    "Attack type: %{customdata[15]}<br>"
-                                    "Weapon type: %{customdata[18]}<br>"
-                                    "Target type: %{customdata[20]}<br>")
 
     return fig
 
