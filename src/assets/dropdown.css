@@ -1,0 +1,27 @@
+/* -- Dropdown -- */
+/* Change color of options in dropdown */
+.Select-control {
+    color: rgba(0, 0, 0, 1);
+}
+
+/* Change color of options in dropdown */
+.Select-menu-outer {
+    color: rgba(0, 0, 0, 1);
+}
+
+
+/* -- Selections -- */
+/* Change color of background for selections */
+.Select--multi .Select-value {
+    border-color: rgba(0, 0, 0, 0.24);
+}
+
+/* Change color of label for selections */
+.Select--multi .Select-value-label {
+    color: rgba(0, 0, 0, 1);
+}
+
+/* Change color for icon for selections */
+.Select--multi .Select-value-icon {
+    color: rgba(0, 0, 0, 1);
+}

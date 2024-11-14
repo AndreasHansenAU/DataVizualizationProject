@@ -1,0 +1,95 @@
+/* -- Slider Style -- */
+/* Background for disabled slider */
+#crossfilter-year-slider .rc-slider-disabled {
+    background-color: rgba(255, 255, 255, 0.3);  /* Adjust the color as needed */
+}
+
+
+/* --- Track Styles --- */
+/* Background for unselected track */
+#crossfilter-year-slider .rc-slider-rail {
+    background-color: rgb(255, 255, 255, 0.7);
+    height: 2px;
+    border-radius: 1px;
+    margin-top: 2.5px;
+}
+
+/* Background for selected track */
+#crossfilter-year-slider .rc-slider-track {
+    background-color: rgb(255, 255, 255, 1);
+    height: 2px;
+    border-radius: 1px;
+    margin-top: 2.5px;
+}
+
+
+/* --- Handle Styles --- */
+/* The draggable handles on either side of the selected range */
+#crossfilter-year-slider .rc-slider-handle {
+    border: 0px solid rgba(255, 255, 255, 1); /* Border color of the handle */
+    background-color: rgba(255, 255, 255, 1); /* Fill color of the handle */
+    width: 10px;               /* Width of the handle */
+    height: 10px;              /* Height of the handle */
+    margin-top: -2px;          /* Center handle vertically */
+    margin-left: -1.5px;
+    border-radius: 50%;        /* Make handle circular */
+}
+
+/* Handle when it is active (being dragged) */
+#crossfilter-year-slider .rc-slider-handle:active {
+    border-color: rgba(255, 255, 255, 1);     /* Border color when active */
+}
+
+
+/* --- Dot (Step) Styles --- */
+/* Default styling for all dots on the track */
+#crossfilter-year-slider .rc-slider-dot {
+    background-color: rgba(255, 255, 255, 0.7); /* Fill color of the dots */
+    border: 0px solid rgba(255, 255, 255, 0.7); /* Border color of the dots */
+    width: 5px;               /* Width of the dots */
+    height: 5px;              /* Height of the dots */
+    border-radius: 50%;        /* Make dots circular */
+}
+
+/* Dots that fall within the selected range */
+#crossfilter-year-slider .rc-slider-dot-active {
+    background-color: rgba(255, 255, 255, 1); /* Fill color of active dots */
+    border-color: rgba(255, 255, 255, 1);     /* Border color of active dots */
+}
+
+
+/* --- Tooltip Styles --- */
+/* Styling for the tooltip that shows the selected range values */
+#crossfilter-year-slider .rc-slider-tooltip {
+    background-color: rgba(0, 0, 0, 0); /* Background color of the tooltip */
+    color: rgba(0, 0, 0, 0);            /* Text color of the tooltip */
+    font-family: Arial; /* Tooltip font */
+    font-size: 12px;           /* Font size */
+    border-radius: 5px;        /* Rounded corners */
+    padding: 2px 2px;          /* Padding inside the tooltip */
+    box-shadow: rgba(0, 0, 0, 0); /* Tooltip shadow */
+}
+
+/* Tooltip inner label (value display) styling */
+#crossfilter-year-slider .rc-slider-tooltip-inner {
+    background-color: rgba(65, 105, 225, 1); /* Inner background color of the tooltip label */
+    color: rgba(255, 255, 255, 1);            /* Inner text color */
+    padding: 2px 2px;
+    border-radius: 3px;        /* Inner box rounded corners */
+    box-shadow: none;          /* Remove shadow if any */
+    font-size: 12px;           /* Font size of the number */
+    margin-top: 0px;
+}
+
+/* Tooltip arrow */
+#crossfilter-year-slider .rc-slider-tooltip-arrow {
+    border-color: rgba(255, 255, 255, 0);
+}
+
+/* --- Mark Styles --- */
+/* Styling for the tick marks (labels) below the slider */
+#crossfilter-year-slider .rc-slider-mark-text {
+    color: rgba(255, 255, 255, 0.7);
+    font-family: Arial;
+    font-size: 12px;
+}

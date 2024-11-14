@@ -210,7 +210,7 @@ app.layout = html.Div([
 
     # Top blue box with title and filters in 3 columns
     html.Div([
-        html.H3("Terrorism Data Visualization", style={'color': 'white', 'text-align': 'center'}),
+        html.H3("Global Terrorism", style={'color': 'white', 'text-align': 'center'}),
         html.Div([
             # Column 1
             html.Div([
@@ -220,8 +220,13 @@ app.layout = html.Div([
                     max=df_terror['iyear'].max(),
                     step=None,
                     value=default.year_range.value,
-                    marks={str(year): str(year) if year % 5 == 0 else '' for year in df_terror['iyear'].unique()},
-                    allowCross=False
+                    marks={str(year): str(year) if year % 10 == 0 else '' for year in df_terror['iyear'].unique()},
+                    allowCross=False,
+                    dots=False,
+                    updatemode='mouseup',
+                    tooltip=dict(placement="top", 
+                                 always_visible=True),
+                    
                 ),
 
                 html.Label("Specify Casualty Range:"),
