@@ -1,7 +1,7 @@
 from utils.Jitter import *
 from constants import default
 from dash import Dash, html, dcc, ctx, Input, Output, State, callback, no_update
-import dash_core_components as dcc
+import dash_core_components as dbc
 from flask_caching import Cache
 import pandas as pd
 import plotly.express as px
@@ -66,7 +66,10 @@ customdata_list = ['eventid', 'latitude_jitter', 'longitude_jitter',
                    'gname', 'guncertain1', 'nperps', 'motive',
                    'nkill', 'nkillter', 'nwound', 'nwoundte', 'property', 'propvalue', 'ishostkid', 'nhostkid', 'nhours', 'ndays',
                    'flag',
-                   'total_casualties',]
+                   'total_casualties', 
+                   'scite1',
+                   'propextent_txt',
+                   'claimmode_txt']
 
 
 ###################
@@ -648,18 +651,52 @@ def update_info_box(clickData):
     # our column
     total_casualties = clickData['data'][40]
 
+    # source
+    scite1 = clickData['data'][41]
+
+    # extent of damage (class)
+    propextent = clickData['data'][42]
+
+    claimmode = clickData['data'][43]
+
+
+    box_content = []
+
+    # quick attack info
+    related_string = ''
+    if related is not None:
+        n_related = len(related.split(', ')) - 1
+        related_string = f"(related to {n_related} other attacks)"
+    box_content.append(html.Div([html.Strong(f"{day}-{month}-{year} {city}, {country} {flag} {related_string}")]))
+    box_content.append(html.Div([html.Span(f"Lethal injuries: {nkill}")]))
+    box_content.append(html.Div([html.Span(f"Non-lethal injuries: {nwound}")]))
+    if propextent is not None:
+        box_content.append(html.Div([html.Span(f"Property damage: {propextent}")]))
+
+    # group info
+    box_content.append(html.Div([html.Br(), html.Strong("Details of group:")]))
+    box_content.append(html.Div([html.Span(f"Group: {group}")]))
+    if motive is not None:
+        box_content.append(html.Div([html.Span(f"Group motive: {motive}")]))
+    if claimmode is not None:
+        if claimmode != 'Unknown':
+            box_content.append(html.Div([html.Span(f"Method of claim: {claimmode}")]))
+    
+    # attack details
+    box_content.append(html.Div([html.Br(), html.Strong("Details of attack:")]))
+    box_content.append(html.Div([html.Span(f"Type of attack: {attacktype1}")]))
+    box_content.append(html.Div([html.Span(f"Type of weapon: {weaptype1}")]))
+    box_content.append(html.Div([html.Span(f"Type of target: {targtype1}")]))
+    if target1 is not None:
+        box_content.append(html.Div([html.Span(f"Specific target: {target1}")]))
+    
+    # summary and source
+    if summary is not None:
+        box_content.append(html.Div([html.Br(), html.Strong('Summary of attack:'), html.Br(), html.Span(summary)]))
+    box_content.append(html.Div([html.Br(), html.Strong("Source: "), html.Span(scite1)]))
 
     # Return a formatted string to display in the info box
-    info_content = html.Div([
-        html.P(f"Country: {country} {flag}"),
-        html.P(f"Date: {day}-{month}-{year}"),
-        html.P(f"Group: {group}"),
-        html.P(f"Attack Type: {attacktype1}"),
-        html.P(f"Weapon Type: {weaptype1}"),
-        html.P(f"Target Type: {targtype1}"),
-        html.P(summary)
-    ])
-
+    info_content = html.Div(children=box_content)
     return info_content
 
 
