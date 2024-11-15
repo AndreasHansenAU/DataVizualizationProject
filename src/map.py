@@ -395,10 +395,12 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
         z_value = 'total_casualties'
         max_density = 50
         colorbar_title = "Casualties"
+        title = 'Where do casualties occur?'
     else:
         z_value = None
         max_density = 50
         colorbar_title = "Attacks"
+        title = 'Where do attacks occur?'
 
     # Viridis
     color_scale = [
@@ -456,7 +458,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     # Update layout to add a title to the legend
     fig.update_layout(
         title=dict(
-            text="Where do attacks occur?",
+            text=title,
             yref="container",
             yanchor="top",
             y=0.85,
@@ -804,15 +806,16 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
     # Create figure and add traces
     fig = go.Figure()
 
-    # Non-selected points trace
+    # Background points trace
+    dff_condition = dff[dff['highlight'] == 0]
     fig.add_trace(
         go.Scatter(
-            x=dff['total_casualties'],
-            y=dff['y_jittered'],
+            x=dff_condition['total_casualties'],
+            y=dff_condition['y_jittered'],
             mode='markers',
-            marker=dict(color=dff['highlight'].map(highlight_scale), size=8),
+            marker=dict(color=highlight_scale[0], size=8),
             name="",
-            customdata=dff[customdata_list].to_numpy(),
+            customdata=dff_condition[customdata_list].to_numpy(),
             hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
                           "Group: %{customdata[25]}<br>"
                           "Attack type: %{customdata[15]}<br>"
@@ -821,14 +824,32 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
         )
     )
 
-    # Selected point(s) trace, if any
+    # Highlighted points trace
+    dff_condition = dff[dff['highlight'] == 1]
+    fig.add_trace(
+        go.Scatter(
+            x=dff_condition['total_casualties'],
+            y=dff_condition['y_jittered'],
+            mode='markers',
+            marker=dict(color=highlight_scale[1], size=8),
+            name="",
+            customdata=dff_condition[customdata_list].to_numpy(),
+            hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
+                          "Group: %{customdata[25]}<br>"
+                          "Attack type: %{customdata[15]}<br>"
+                          "Weapon type: %{customdata[18]}<br>"
+                          "Target type: %{customdata[20]}<br>"
+        )
+    )
+
+    # Selected point trace
     if selected_point is not None:
         fig.add_trace(
             go.Scatter(
                 x=selected_point['total_casualties'],
                 y=selected_point['y_jittered'],
                 mode='markers',
-                marker=dict(color=default.selection_color.value, size=8),
+                marker=dict(color=highlight_scale[2], size=8),
                 name="",
                 customdata=selected_point[customdata_list].to_numpy(),
                 hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
