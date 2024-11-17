@@ -26,7 +26,7 @@ class default(Enum):
 
     plot_bgcolor = 'white'
 
-    year_range = [2000, 2020]
+    year_range = [2015, 2020]
     zoom = 0.1
     lat = 16.5
     lon = 10.4

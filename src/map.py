@@ -11,14 +11,14 @@ import os
 from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 
-###################
-#  setup app
+###############################################################################
+# setup app
 port=8050
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
 
-###################
+###############################################################################
 # setup cache
 cache = Cache(app.server, config={
     'DEBUG':True,
@@ -33,7 +33,7 @@ cache = Cache(app.server, config={
 #})
 
 
-###################
+###############################################################################
 # setup data
 @cache.memoize()
 def read_data_terror():
@@ -72,7 +72,7 @@ customdata_list = ['eventid', 'latitude_jitter', 'longitude_jitter',
                    'claimmode_txt']
 
 
-###################
+###############################################################################
 # filter data
 @cache.memoize()
 def filter_years(df, year_range):
@@ -115,7 +115,7 @@ def filter_data(df, year_range, casualty_lower, casualty_upper, attacktype, weap
     return df_filtered
 
 
-###################
+###############################################################################
 # setup filters
 @callback(
     Output('crossfilter-summary-container', 'children'),
@@ -206,7 +206,7 @@ def adjust_upper_casualty_input(casualty_lower, casualty_upper):
     raise PreventUpdate
 
 
-###################
+###############################################################################
 # setup layout
 app.layout = html.Div([
     dcc.Store(id='global-clickData'),
@@ -317,7 +317,7 @@ app.layout = html.Div([
 
             # parallel sets
             html.Div([
-                dcc.Graph(id='chart-parallel-sets')
+                dcc.Graph(id='chart-parallel-sets', clickData=None)
             ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '-50px', 'margin-left': '0px'}),
         ], style={'display': 'flex', 'flex-direction': 'column', 'margin-bottom': '0px', 'width':'50%', 'min-width':'50%'}),
         # end of column 1
@@ -326,7 +326,10 @@ app.layout = html.Div([
         html.Div([
             # info box
             html.Div([
-                html.H4("Selected Attack Information", id="info-title"),
+                html.Div([
+                    html.H4("Selected Attack Information", id="info-title", style={'margin': '0'}),
+                    html.Button('Reset Selection', id='button-reset-selection', n_clicks=0, style={'margin-left': '10px', 'font':default.font_type.value})
+                ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
                 html.Div(id='info-box', style={
                     'padding': '10px',
                     'border': '1px solid black',
@@ -349,14 +352,15 @@ app.layout = html.Div([
 ])
 
 
-###################
-# update graphs
+###############################################################################
+# update global clickdata
 @callback(
     Output('global-clickData', 'data'),
     Input('map-heatmap', 'clickData'),
-    Input('chart-beeswarm', 'clickData')
+    Input('chart-beeswarm', 'clickData'),
+    Input('button-reset-selection', 'n_clicks')
 )
-def update_global_clickdata(map_clickData, beeswarm_clickData):
+def update_global_clickdata(map_clickData, beeswarm_clickData, n_clicks):
     global_clickData = None
 
     # update global click data based on which event triggered a callback
@@ -367,10 +371,15 @@ def update_global_clickdata(map_clickData, beeswarm_clickData):
     elif 'chart-beeswarm.clickData' in trigger:
         trigger = 'chart-beeswarm.clickData'
         global_clickData = beeswarm_clickData['points'][0]['customdata']
+    elif 'button-reset-clickdata.n_clicks' in trigger:
+        trigger = 'button-reset-clickdata.n_clicks'
+        global_clickData = None
     
     return dict(data=global_clickData, trigger=trigger)
 
 
+###############################################################################
+# update heatmap
 @callback(
     Output('map-heatmap', 'figure'),
     State('map-state', 'data'), # can read state but can't be triggered by state change
@@ -532,6 +541,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     return fig
 
 
+# update heatmap state
 @callback(
     Output('map-state', 'data'),
     Input('map-heatmap', 'relayoutData'),
@@ -559,6 +569,8 @@ def update_map_state(relayoutData, clickData):
     return no_update
 
 
+###############################################################################
+# update infobox
 @callback(
     Output('info-box', 'children'),
     Input('global-clickData', 'data'))
@@ -700,6 +712,8 @@ def update_info_box(clickData):
     return info_content
 
 
+###############################################################################
+# update parallel sets
 @callback(
         Output('chart-parallel-sets', 'figure'),
         Input('crossfilter-year-slider', 'value'),
@@ -761,7 +775,7 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
             hoverinfo=None, # enable hover
             labelfont=default.label_dict.value,
             tickfont=dict(color=default.font_color.value, family=default.font_type.value, size=10, weight=10),
-            sortpaths='forward',
+            sortpaths='forward'
         )
     )
 
@@ -783,10 +797,80 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
         width=700,
         height=500
     )
-    
+     
     return fig
 
 
+# update filters interactively in parallel sets
+@callback(
+    Output('crossfilter-attacktype-dropdown', 'value'),
+    Output('crossfilter-weapontype-dropdown', 'value'),
+    Output('crossfilter-targettype-dropdown', 'value'),
+    State('crossfilter-attacktype-dropdown', 'value'),
+    State('crossfilter-weapontype-dropdown', 'value'),
+    State('crossfilter-targettype-dropdown', 'value'),
+    State('crossfilter-year-slider', 'value'),
+    State('crossfilter-casualty-lower', 'value'),
+    State('crossfilter-casualty-upper', 'value'),
+    State('crossfilter-group-dropdown', 'value'),
+    Input('chart-parallel-sets', 'clickData'),
+    running=[(Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-casualty-lower', 'disabled'), True, False),
+             (Output('crossfilter-casualty-upper', 'disabled'), True, False),
+             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
+             (Output('toggle-metric', 'disabled'), True, False)])
+def update_parallel_categories_filters(attacktype, weapontype, targettype, year_range, casualty_lower, casualty_upper, group, clickData):
+    def update_filter(filter_current, filter_new_list):
+        # if the attribute value is the same for all clicked points
+        if len(filter_new_list) == 1:
+            # get the clicked value
+            value_clicked = filter_new_list[0]
+
+            # if no filter is applied, then apply clicked value
+            if filter_current is None:
+                filter_current = [value_clicked]
+
+            # if filter is applied but not with clicked value, then apply clicked value
+            elif value_clicked not in filter_current:
+                filter_current.append(value_clicked)
+
+            # if filter is applied with clicked value, then remove clicked value
+            elif value_clicked in filter_current:
+                filter_current.remove(value_clicked)
+        
+        return filter_current
+
+    # filter data
+    dff = filter_data(df_terror, year_range, casualty_lower, casualty_upper, None, None, None, group)
+
+    attacktype_current = attacktype
+    weapontype_current = weapontype
+    targettype_current = targettype
+
+    if clickData:
+        # get rows that belong to clicked shape
+        points_list = clickData['points']
+        indexes = [point['pointNumber'] for point in points_list]
+        dff_subset = dff.iloc[indexes]
+
+        # get all unique values
+        attacktypes_clicked = dff_subset['attacktype1_txt'].unique()
+        weapontypes_clicked = dff_subset['weaptype1_txt'].unique()
+        targettypes_clicked = dff_subset['targtype1_txt'].unique()
+
+        # update filters
+        attacktype_current = update_filter(attacktype_current, attacktypes_clicked)
+        weapontype_current = update_filter(weapontype_current, weapontypes_clicked)
+        targettype_current = update_filter(targettype_current, targettypes_clicked)
+    
+    return (attacktype_current, weapontype_current, targettype_current)
+
+
+###############################################################################
+# update beeswarm
 @callback(
         Output('chart-beeswarm', 'figure'),
         Input('global-clickData', 'data'),
@@ -938,8 +1022,7 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
     return fig
 
 
-
-###################
+###############################################################################
 # deploy app
 def open_browser():
     if not os.environ.get("WERKZEUG_RUN_MAIN"):
