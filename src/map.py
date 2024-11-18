@@ -1,4 +1,5 @@
 from utils.Jitter import *
+from utils.Utils import *
 from constants import default
 from dash import Dash, html, dcc, ctx, Input, Output, State, callback, no_update
 import dash_core_components as dbc
@@ -442,7 +443,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
             lat=dff['latitude_jitter'],
             lon=dff['longitude_jitter'],
             z=dff[z_value] if z_value else None,
-            radius=10,
+            radius=default.marker_size.value,
             opacity=1,
             zmin=0,
             zmax=max_density,
@@ -503,8 +504,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
         related = clickData['data'][14]
         if related:
             # format ids of related attacks
-            related_split = related.split(', ')
-            related_split = [int(r) for r in related_split]
+            related_split = get_related_ids(related)
             # get information from related attacks
             related_gps = dff[dff['eventid'].isin(related_split)][['eventid', 'latitude_jitter', 'longitude_jitter']]
             for idx, (_, row) in  enumerate(related_gps.iterrows()):
@@ -514,9 +514,10 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                         mode='lines+markers',
                         lon=[clicked_lon, row['longitude_jitter']],
                         lat=[clicked_lat, row['latitude_jitter']],
-                        line=dict(width=3, color='black'),
-                        marker=dict(size=10, color='black'),
-                        opacity=0.8,
+                        line=dict(width=3, 
+                                  color=default.related_color.value),
+                        marker=dict(size=default.related_size.value, 
+                                    color=default.related_color.value),
                         name=f'Related {idx+1}',
                         hoverinfo='skip', # no hover info
                         showlegend=False, # don't show in legend
@@ -531,8 +532,8 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                     mode='markers',
                     lon=[clicked_lon],
                     lat=[clicked_lat],
-                    marker=dict(size=10, color=default.selection_color.value),
-                    opacity=0.8,
+                    marker=dict(size=default.selection_size.value, 
+                                color=default.selection_color.value),
                     hoverinfo='skip', # no hover info
                     showlegend=False, # don't show in legend
                 ),
@@ -671,15 +672,27 @@ def update_info_box(clickData):
 
     claimmode = clickData['data'][43]
 
+    selection_style = {"width": f"{default.selection_size.value}px", 
+                       "height": f"{default.selection_size.value}px",
+                       "backgroundColor": default.selection_color.value,
+                       "borderRadius": "50%",
+                       "display": "inline-block",
+                       "marginRight": f"{default.selection_size.value}px"}
+    
+    related_style = {"width": f"{default.related_size.value}px", 
+                       "height": f"{default.related_size.value}px",
+                       "backgroundColor": default.related_color.value,
+                       "borderRadius": "50%",
+                       "display": "inline-block",
+                       "marginRight": f"{default.related_size.value}px"}
 
     box_content = []
 
     # quick attack info
-    related_string = ''
+    box_content.append(html.Div([html.Span(style=selection_style), html.Span(f"{day}-{month}-{year} {city}, {country} {flag}")]))
     if related is not None:
-        n_related = len(related.split(', ')) - 1
-        related_string = f"(related to {n_related} other attacks)"
-    box_content.append(html.Div([html.Strong(f"{day}-{month}-{year} {city}, {country} {flag} {related_string}")]))
+        n_related = len(get_related_ids(related)) - 1
+        box_content.append(html.Div([html.Span(style=related_style), html.Span(f"{n_related} related attacks")]))
     box_content.append(html.Div([html.Span(f"Lethal injuries: {nkill}")]))
     box_content.append(html.Div([html.Span(f"Non-lethal injuries: {nwound}")]))
     if propextent is not None:
@@ -911,68 +924,41 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
         condition = weapon_condition & attack_condition & target_condition
         dff.loc[~condition, 'highlight'] = 0
 
-    # Highlight based on clickData
-    selected_point = None
+    # Highlight based on related and clickData 
     if clickData['data'] is not None:
-        clicked_eventid = clickData['data'][0]  # Adjust as needed
-        dff.loc[dff['eventid'] == clicked_eventid, 'highlight'] = 2
-        selected_point = dff[dff['highlight'] == 2]
-        dff = dff[dff['highlight'] != 2]  # Exclude selected point(s) for separate trace
+        # get related
+        related = clickData['data'][14]
+        if related:
+            # format ids of related attacks
+            related_split = get_related_ids(related)
+            dff.loc[dff['eventid'].isin(related_split), 'highlight'] = 2
+        
+        # get click
+        clicked_eventid = clickData['data'][0]
+        dff.loc[dff['eventid'] == clicked_eventid, 'highlight'] = 3
+
 
     # Set color mapping
-    highlight_scale = {0: default.background_color.value, 
-                       1: default.highlight_color.value, 
-                       2: default.selection_color.value}
+    highlight_scale = {0: [default.background_color.value, default.marker_size.value], 
+                       1: [default.highlight_color.value, default.marker_size.value], 
+                       2: [default.related_color.value, default.related_size.value],
+                       3: [default.selection_color.value, default.selection_size.value]}
 
     # Create figure and add traces
     fig = go.Figure()
 
-    # Background points trace
-    dff_condition = dff[dff['highlight'] == 0]
-    fig.add_trace(
-        go.Scatter(
-            x=dff_condition['total_casualties'],
-            y=dff_condition['y_jittered'],
-            mode='markers',
-            marker=dict(color=highlight_scale[0], size=8),
-            name="",
-            customdata=dff_condition[customdata_list].to_numpy(),
-            hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
-                          "Group: %{customdata[25]}<br>"
-                          "Attack type: %{customdata[15]}<br>"
-                          "Weapon type: %{customdata[18]}<br>"
-                          "Target type: %{customdata[20]}<br>"
-        )
-    )
-
-    # Highlighted points trace
-    dff_condition = dff[dff['highlight'] == 1]
-    fig.add_trace(
-        go.Scatter(
-            x=dff_condition['total_casualties'],
-            y=dff_condition['y_jittered'],
-            mode='markers',
-            marker=dict(color=highlight_scale[1], size=8),
-            name="",
-            customdata=dff_condition[customdata_list].to_numpy(),
-            hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
-                          "Group: %{customdata[25]}<br>"
-                          "Attack type: %{customdata[15]}<br>"
-                          "Weapon type: %{customdata[18]}<br>"
-                          "Target type: %{customdata[20]}<br>"
-        )
-    )
-
-    # Selected point trace
-    if selected_point is not None:
+    # scatterplot of background, highlight, related and selection
+    for i in [0, 1, 2, 3]:
+        dff_condition = dff[dff['highlight'] == i]
         fig.add_trace(
             go.Scatter(
-                x=selected_point['total_casualties'],
-                y=selected_point['y_jittered'],
+                x=dff_condition['total_casualties'],
+                y=dff_condition['y_jittered'],
                 mode='markers',
-                marker=dict(color=highlight_scale[2], size=8),
+                marker=dict(size=highlight_scale[i][1], 
+                            color=highlight_scale[i][0]),
                 name="",
-                customdata=selected_point[customdata_list].to_numpy(),
+                customdata=dff_condition[customdata_list].to_numpy(),
                 hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
                               "Group: %{customdata[25]}<br>"
                               "Attack type: %{customdata[15]}<br>"
@@ -980,6 +966,7 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
                               "Target type: %{customdata[20]}<br>"
             )
         )
+    
 
     # Update layout
     fig.update_layout(

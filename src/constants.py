@@ -21,8 +21,12 @@ class default(Enum):
                       weight=label_font_weight)
     
     selection_color = 'rgba(255, 0, 0, 1)' # red
-    highlight_color = 'rgba(65, 105, 225, 1)' # blue
+    selection_size = 10
+    related_color = 'rgba(0, 0, 0, 0.9)' # black
+    related_size = 10
+    highlight_color = 'rgba(65, 105, 225, 0.8)' # blue
     background_color = 'rgba(211, 211, 211, 0.3)' # light grey
+    marker_size = 10
 
     plot_bgcolor = 'white'
 
