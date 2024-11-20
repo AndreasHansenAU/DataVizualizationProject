@@ -353,6 +353,11 @@ app.layout = html.Div([
             # beeswarm
             html.Div([
                 dcc.Graph(id='chart-beeswarm', clickData=None, hoverData=None)
+            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '0px'}),
+
+            # scatterplot
+            html.Div([
+                dcc.Graph(id='chart-scatter', clickData=None, hoverData=None)
             ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '0px'})
         ], style={'display': 'flex', 'flex-direction': 'column', 
                   'margin-top': '0px', 'width':'50%', 'min-width':'50%', 
@@ -560,22 +565,23 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     prevent_initial_call=True
 )
 def update_map_state(relayoutData, clickData):
-    current_zoom = relayoutData.get('map.zoom')
-    current_center = relayoutData.get('map.center')
+    if relayoutData is not None:
+        current_zoom = relayoutData.get('map.zoom')
+        current_center = relayoutData.get('map.center')
 
-    trigger = list(ctx.triggered_prop_ids.keys())
+        trigger = list(ctx.triggered_prop_ids.keys())
 
-    # if triggered by click then update state to clicked points location
-    if 'global-clickData.data' in trigger and clickData['data'] is not None:
-        clicked_lat = clickData['data'][1]
-        clicked_lon = clickData['data'][2]
-        return {'zoom': current_zoom,
-                'center': {'lat':clicked_lat, 'lon':clicked_lon}}
+        # if triggered by click then update state to clicked points location
+        if 'global-clickData.data' in trigger and clickData['data'] is not None:
+            clicked_lat = clickData['data'][1]
+            clicked_lon = clickData['data'][2]
+            return {'zoom': current_zoom,
+                    'center': {'lat':clicked_lat, 'lon':clicked_lon}}
 
-    # if triggered by relayout then update state
-    if 'map-heatmap.relayoutData' in trigger:
-        return {'zoom': current_zoom, 
-                'center': current_center}
+        # if triggered by relayout then update state
+        if 'map-heatmap.relayoutData' in trigger:
+            return {'zoom': current_zoom, 
+                    'center': current_center}
     
     return no_update
 
@@ -1017,6 +1023,157 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
     )
 
     return fig
+
+
+###############################################################################
+# update scatter
+@callback(
+    Output('chart-scatter', 'figure'),
+    Input('crossfilter-year-slider', 'value'),
+    Input('crossfilter-casualty-lower', 'value'),
+    Input('crossfilter-casualty-upper', 'value'),
+    Input('crossfilter-attacktype-dropdown', 'value'),
+    Input('crossfilter-weapontype-dropdown', 'value'),
+    Input('crossfilter-targettype-dropdown', 'value'),
+    Input('crossfilter-group-dropdown', 'value'),
+    running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
+             (Output('toggle-metric', 'disabled'), True, False)],
+    prevent_initial_call=True)
+def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group):
+    # get cached data
+    dff = filter_data(df_terror, year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, None)
+
+    # get number of attacks and sum of casualties per group
+    dff_grouped = (dff.groupby(['gname'])['total_casualties']
+                      .agg(['count', 'sum'])
+                      .reset_index(drop=False)
+                      .rename(columns={'count':'n_attacks', 'sum':'n_casualties'}))
+    
+    mean_casualties = dff_grouped['n_casualties'].sum()/dff_grouped['n_attacks'].sum()
+    max_attacks = dff_grouped['n_attacks'].max()
+
+    # Set default highlight and define filters
+    dff_grouped['highlight'] = 1
+
+    # Highlight based on related and clickData 
+    if group is not None and len(group) > 0:
+        dff_grouped.loc[dff_grouped['gname'].isin(group)==False, 'highlight'] = 0
+
+
+    # Set color mapping
+    highlight_scale = {0: [default.background_color.value, default.marker_size.value], 
+                       1: [default.highlight_color.value, default.marker_size.value]}
+    
+    fig = go.Figure()
+
+    for i in [0, 1]:
+        condition = dff_grouped['highlight'] == i
+        fig.add_trace(
+            go.Scatter(
+                x=dff_grouped.loc[condition, 'n_attacks'],
+                y=dff_grouped.loc[condition, 'n_casualties'],
+                mode='markers',
+                marker=dict(size=highlight_scale[i][1], 
+                            color=highlight_scale[i][0]),
+                name="",
+                customdata=dff_grouped.loc[condition, ['gname']].to_numpy(),
+                hovertemplate="<b>%{customdata[0]}</b><br>",
+            )
+        )
+
+    # Update layout with mean indicator
+    fig.update_layout(
+        shapes=[dict(
+            type='line',
+            x0=0,
+            y0=0,
+            x1=max_attacks,
+            y1=max_attacks*mean_casualties,
+            line=dict(
+                color='grey',
+                width=2, 
+                dash='dash'
+            )
+        )]
+    )
+
+    # Update layout
+    fig.update_layout(
+        title=dict(
+            text="Which groups causes most casualties?",
+            yref="container",
+            yanchor="top",
+            y=0.9,
+            xref="paper",
+            xanchor="center",
+            x=0.5,
+            font=default.title_dict.value
+        ),
+        xaxis=dict(
+            title=dict(
+                text='Number of attacks',
+                font=default.label_dict.value
+            ),
+            showgrid=True, 
+            gridcolor='lightgray', 
+            gridwidth=0.5),
+        yaxis=dict(
+            title=dict(
+                text='Sum of casualties',
+                font=default.label_dict.value
+            ),
+            showgrid=True,
+            gridcolor='lightgray',
+            gridwidth=0.5
+        ),
+        font=default.label_dict.value,
+        showlegend=False,
+        plot_bgcolor=default.plot_bgcolor.value,
+        width=500,
+        height=500
+    )
+
+    return fig
+
+
+# update group filter by click in scatter
+@callback(
+    Output('crossfilter-group-dropdown', 'value'),
+    State('crossfilter-group-dropdown', 'value'),
+    Input('chart-scatter', 'clickData'),
+    running=[(Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-casualty-lower', 'disabled'), True, False),
+             (Output('crossfilter-casualty-upper', 'disabled'), True, False),
+             (Output('crossfilter-group-dropdown', 'disabled'), True, False),
+             (Output('toggle-metric', 'disabled'), True, False)])
+def update_group_filter(group, clickData):
+    # if clicked
+    if clickData is not None:
+        # get clicked point
+        selected_group = clickData['points'][0]['customdata'][0]
+
+        # if no filter is applied
+        if group is None:
+            group = [selected_group]
+        
+        # if filter is applied and selection is not in it
+        elif selected_group not in group:
+            group.append(selected_group)
+        
+        # if filter is applied and selection is in it
+        elif selected_group in group:
+            group.remove(selected_group)
+        
+        # update filter
+        return group
+    return no_update
 
 
 ###############################################################################
