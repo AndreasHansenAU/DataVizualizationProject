@@ -39,13 +39,23 @@ cache = Cache(app.server, config={
 @cache.memoize()
 def read_data_terror():
     df = pd.read_csv("src/data/globalterrorism_2020_cleaned.csv")
-    df_jittered = add_jitter_coordinates(df, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
-    df_jittered = add_jitter_beeswarm(df_jittered, jitter_amount=0.2)
-    return df_jittered
+
+    # jitter geospatial coordinates
+    df = add_jitter_coordinates(df, "latitude", "longitude", "latitude_jitter", "longitude_jitter")
+
+    # jitter beeswarm
+    df = add_jitter_beeswarm(df, jitter_amount=0.2)
+
+    # simplify vehicle name
+    df.loc[df['weaptype1_txt'].str.contains('Vehicle'), 'weaptype1_txt'] = 'Vehicle'
+
+    # ensure 0 casualties can be plotted in heatmap
+    df['total_casualties_visualized'] = df['total_casualties'].replace(0, 1)
+
+    return df
 
 
 df_terror = read_data_terror()
-df_terror.loc[df_terror['weaptype1_txt'].str.contains('Vehicle'), 'weaptype1_txt'] = 'Vehicle'
 
 all_attacktypes = pd.Series(df_terror['attacktype1_txt'].unique(), name='attacktype1_txt')
 all_weapontypes = pd.DataFrame(df_terror['weaptype1_txt'].unique(), columns=['weaptype1_txt'])
@@ -405,7 +415,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
     dff = filter_data(df_terror, year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group)
     
     if metric == 'casualties':
-        z_value = 'total_casualties'
+        z_value = 'total_casualties_visualized'
         max_density = 50
         colorbar_title = "Casualties"
         title = 'Where do casualties occur?'
