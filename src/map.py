@@ -260,28 +260,22 @@ app.layout = html.Div([
                     min=0,
                     value=df_terror['total_casualties'].max(),
                     style={'width': '45%'}
-                )
-            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
+                ),
 
-            # Column 2
-            html.Div([
+                html.Div(
+                    id='crossfilter-group-container',
+                    children=update_group_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max()),
+                    style={'padding': '10px'}
+                ),
+
                 html.Div(
                     id='crossfilter-summary-container',
                     children=update_summary_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max(), None, None, None, None),
                     style={'padding': '10px'}
-                ),
-
-                dcc.RadioItems(
-                    id='toggle-metric',
-                    options=[
-                        {'label': 'Show Number of Attacks', 'value': 'attacks'},
-                        {'label': 'Show Total Casualties', 'value': 'casualties'}
-                    ],
-                    value='attacks'
                 )
             ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
 
-            # Column 3
+            # Column 2
             html.Div([
                 dcc.Dropdown(
                     id='crossfilter-attacktype-dropdown',
@@ -307,10 +301,30 @@ app.layout = html.Div([
                     multi=True,
                     clearable=False
                 ),
+
+                dcc.RadioItems(
+                    id='toggle-metric',
+                    options=[
+                        {'label': 'Show Number of Attacks', 'value': 'attacks'},
+                        {'label': 'Show Total Casualties', 'value': 'casualties'}
+                    ],
+                    value='attacks'
+                )
+            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
+
+            # Column 3
+            html.Div([
+                html.Button('Reset Selection', 
+                    id='button-reset-selection', 
+                    n_clicks=0, 
+                    style={'margin-left': '10px', 'font':default.font_type.value}),
                 html.Div(
-                    id='crossfilter-group-container',
-                    children=update_group_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max()),
-                    style={'padding': '10px'}
+                    id="info-container", 
+                    children=html.Div(
+                        id='info-box'
+                    ),
+                    n_clicks=0,
+                    style={'width': '90%'}
                 )
             ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'})
         ], style={'display': 'flex', 'flex-direction': 'row'})
@@ -335,21 +349,6 @@ app.layout = html.Div([
 
         # Column 2
         html.Div([
-            # info box
-            html.Div([
-                html.Div([
-                    html.H4("Selected Attack Information", id="info-title", style={'margin': '0'}),
-                    html.Button('Reset Selection', id='button-reset-selection', n_clicks=0, style={'margin-left': '10px', 'font':default.font_type.value})
-                ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
-                html.Div(id='info-box', style={
-                    'padding': '10px',
-                    'border': '1px solid black',
-                    'width': '90%',
-                    'height': '200px',
-                    'overflow-y': 'scroll'
-                })
-            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top'}),
-
             # beeswarm
             html.Div([
                 dcc.Graph(id='chart-beeswarm', clickData=None, hoverData=None)
@@ -587,6 +586,28 @@ def update_map_state(relayoutData, clickData):
 
 
 ###############################################################################
+# toggle info box
+@callback(
+    Output('info-container', 'children'),
+    Input('info-container', 'n_clicks'),
+)
+def toggle_info_box(n_clicks):
+    if n_clicks is not None and n_clicks % 2 == 1:
+        return html.Div(id='info-box', style={
+                    'padding': '10px',
+                    'border': '1px solid black',
+                    'width': '90%',
+                    'height': '200px',
+                    'overflow-y': 'scroll'
+                })
+    else:  # Show mini box when clicked again
+        return html.Div(id='info-box', style={
+                    'padding': '10px',
+                    'border': '1px solid black',
+                    'width': '90%',
+                    'height': '70px',
+                })
+
 # update infobox
 @callback(
     Output('info-box', 'children'),
