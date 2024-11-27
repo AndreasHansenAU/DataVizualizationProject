@@ -322,7 +322,6 @@ app.layout = html.Div([
                 ),
                 html.Div(
                     id="info-box",
-                    n_clicks=0,
                     style={'margin-top': '10px', 'clear': 'both'}
                 )
             ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'})
@@ -594,25 +593,21 @@ def update_map_state(relayoutData, clickData):
 # update infobox
 @callback(
     Output('info-box', 'children'),
-    Input('global-clickData', 'data'),
-    Input('info-box', 'n_clicks'))
-def update_info_box(clickData, n_clicks):
+    Input('global-clickData', 'data'))
+def update_info_box(clickData):
     if clickData['data'] is None:
-        #return "Click on an attack to see details."
         return html.Div(
-        id='info-box', 
-        style={
-            'padding': '5px',
-            'width': '100%',
-            'height': '100px',
-            'overflow-y': 'scroll',
-            'background-color': 'white',
-            'border-radius': '5px',
-            'color': 'black'
-        },
-        children="Click on an attack to see details.",
-        n_clicks=n_clicks
-    )
+            id='info-box', 
+            style={
+                'width': '100%',
+                'height': '100px',
+                'overflow-y': 'scroll',
+                'background-color': 'white',
+                'border-radius': '5px',
+                'color': 'black'
+            },
+            children="Click on an attack to see details."
+        )
 
     # Overall details
     eventid = clickData['data'][0]
@@ -759,7 +754,6 @@ def update_info_box(clickData, n_clicks):
     info_box = html.Div(
         id='info-box', 
         style={
-            'padding': '5px',
             'width': '100%',
             'height': '100px',
             'overflow-y': 'scroll',
@@ -768,7 +762,6 @@ def update_info_box(clickData, n_clicks):
             'color': 'black'
         },
         children=box_content,
-        n_clicks=n_clicks
     )
     return info_box
 
