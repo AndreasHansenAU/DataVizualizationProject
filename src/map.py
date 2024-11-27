@@ -428,14 +428,14 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
         colorbar_title = "Attacks"
         title = 'Where do attacks occur?'
 
-    # Viridis
+    # Ice with white color cut away
     color_scale = [
         [0.0, "rgba(0, 0, 0, 0)"],
-        [0.01, "#440154"],  # Dark purple
-        [0.25, "#3b528b"],  # Medium blue
-        [0.5, "#21918c"],  # Green
-        [0.75, "#5ec962"],  # Yellow-green
-        [1.0, "#fde725"]   # Yellow
+        [0.01, "rgb(3, 5, 18)"],
+        [0.25, "rgb(52, 52, 108)"],
+        [0.5, "rgb(63, 112, 179)"],
+        [0.75, "rgb(106, 176, 202)"],
+        [1.0, "rgb(206, 237, 239)"]
     ]
 
     # ensure that map is drawn in same state prior to update
@@ -598,7 +598,21 @@ def update_map_state(relayoutData, clickData):
     Input('info-box', 'n_clicks'))
 def update_info_box(clickData, n_clicks):
     if clickData['data'] is None:
-        return "Click on an attack to see details."
+        #return "Click on an attack to see details."
+        return html.Div(
+        id='info-box', 
+        style={
+            'padding': '5px',
+            'width': '100%',
+            'height': '100px',
+            'overflow-y': 'scroll',
+            'background-color': 'white',
+            'border-radius': '5px',
+            'color': 'black'
+        },
+        children="Click on an attack to see details.",
+        n_clicks=n_clicks
+    )
 
     # Overall details
     eventid = clickData['data'][0]
@@ -745,10 +759,13 @@ def update_info_box(clickData, n_clicks):
     info_box = html.Div(
         id='info-box', 
         style={
-            'border': '0px',
+            'padding': '5px',
             'width': '100%',
             'height': '100px',
-            'overflow-y': 'scroll'
+            'overflow-y': 'scroll',
+            'background-color': 'white',
+            'border-radius': '5px',
+            'color': 'black'
         },
         children=box_content,
         n_clicks=n_clicks
@@ -1085,8 +1102,10 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
 
 
     # Set color mapping
-    highlight_scale = {0: [default.background_color.value, default.marker_size.value], 
-                       1: [default.highlight_color.value, default.marker_size.value]}
+    #highlight_scale = {0: [default.background_color.value, default.marker_size.value], 
+    #                  1: [default.highlight_color.value, default.marker_size.value]}
+    highlight_scale = {0: [default.background_color_group.value, default.marker_size.value], 
+                       1: [default.highlight_color_group.value, default.marker_size.value]}
     
     fig = go.Figure()
 
