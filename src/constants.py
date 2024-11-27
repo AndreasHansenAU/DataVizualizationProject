@@ -20,9 +20,9 @@ class default(Enum):
                       size=label_font_size, 
                       weight=label_font_weight)
     
-    selection_color = 'rgba(255, 0, 0, 1)' # red
+    selection_color = 'rgba(200, 80, 0, 1)' # dark orange
     selection_size = 10
-    related_color = 'rgba(0, 0, 0, 0.9)' # black
+    related_color = 'rgba(200, 130, 0, 0.9)' # lighter orange
     related_size = 10
     highlight_color = 'rgba(65, 105, 225, 0.8)' # blue
     background_color = 'rgba(211, 211, 211, 0.3)' # light grey
