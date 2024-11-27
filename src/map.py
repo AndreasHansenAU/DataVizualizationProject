@@ -405,10 +405,12 @@ def update_global_clickdata(map_clickData, beeswarm_clickData, n_clicks):
     Input('crossfilter-targettype-dropdown', 'value'),
     Input('crossfilter-group-dropdown', 'value'),
     Input('toggle-metric', 'value'),
-    running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
-             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+    running=[(Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-casualty-lower', 'disabled'), True, False),
+             (Output('crossfilter-casualty-upper', 'disabled'), True, False),
              (Output('crossfilter-group-dropdown', 'disabled'), True, False),
              (Output('toggle-metric', 'disabled'), True, False)],
     prevent_initial_call=True)
@@ -777,10 +779,12 @@ def update_info_box(clickData):
         Input('crossfilter-weapontype-dropdown', 'value'),
         Input('crossfilter-targettype-dropdown', 'value'),
         Input('crossfilter-group-dropdown', 'value'),
-        running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
-             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+        running=[(Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-casualty-lower', 'disabled'), True, False),
+             (Output('crossfilter-casualty-upper', 'disabled'), True, False),
              (Output('crossfilter-group-dropdown', 'disabled'), True, False),
              (Output('toggle-metric', 'disabled'), True, False)])
 def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attacktype, weapontype, targettype, group):
@@ -933,10 +937,12 @@ def update_parallel_categories_filters(attacktype, weapontype, targettype, year_
         Input('crossfilter-weapontype-dropdown', 'value'),
         Input('crossfilter-targettype-dropdown', 'value'),
         Input('crossfilter-group-dropdown', 'value'),
-        running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
-             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+        running=[(Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-casualty-lower', 'disabled'), True, False),
+             (Output('crossfilter-casualty-upper', 'disabled'), True, False),
              (Output('crossfilter-group-dropdown', 'disabled'), True, False),
              (Output('toggle-metric', 'disabled'), True, False)])
 def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targettype, group):
@@ -1066,10 +1072,12 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
     Input('crossfilter-weapontype-dropdown', 'value'),
     Input('crossfilter-targettype-dropdown', 'value'),
     Input('crossfilter-group-dropdown', 'value'),
-    running=[(Output('crossfilter-year-slider', 'disabled'), True, False),
-             (Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
+    running=[(Output('crossfilter-attacktype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-weapontype-dropdown', 'disabled'), True, False),
              (Output('crossfilter-targettype-dropdown', 'disabled'), True, False),
+             (Output('crossfilter-year-slider', 'disabled'), True, False),
+             (Output('crossfilter-casualty-lower', 'disabled'), True, False),
+             (Output('crossfilter-casualty-upper', 'disabled'), True, False),
              (Output('crossfilter-group-dropdown', 'disabled'), True, False),
              (Output('toggle-metric', 'disabled'), True, False)],
     prevent_initial_call=True)
@@ -1082,9 +1090,6 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
                       .agg(['count', 'sum'])
                       .reset_index(drop=False)
                       .rename(columns={'count':'n_attacks', 'sum':'n_casualties'}))
-    
-    mean_casualties = dff_grouped['n_casualties'].sum()/dff_grouped['n_attacks'].sum()
-    max_attacks = dff_grouped['n_attacks'].max()
 
     # Set default highlight and define filters
     dff_grouped['highlight'] = 1
@@ -1095,8 +1100,6 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
 
 
     # Set color mapping
-    #highlight_scale = {0: [default.background_color.value, default.marker_size.value], 
-    #                  1: [default.highlight_color.value, default.marker_size.value]}
     highlight_scale = {0: [default.background_color_group.value, default.marker_size.value], 
                        1: [default.highlight_color_group.value, default.marker_size.value]}
     
@@ -1112,8 +1115,10 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
                 marker=dict(size=highlight_scale[i][1], 
                             color=highlight_scale[i][0]),
                 name="",
-                customdata=dff_grouped.loc[condition, ['gname']].to_numpy(),
-                hovertemplate="<b>%{customdata[0]}</b><br>",
+                customdata=dff_grouped.loc[condition, ['gname', 'n_attacks', 'n_casualties']].to_numpy(),
+                hovertemplate="<b>%{customdata[0]}</b><br>"
+                              "Attacks: %{customdata[1]}<br>"
+                              "Casualties: %{customdata[2]}",
                 hoverlabel=dict(
                     bgcolor=highlight_scale[i][0],
                     bordercolor=default.hover_bordercolor.value,
@@ -1122,20 +1127,52 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
             )
         )
 
-    # Update layout with mean indicator
+
+    # add lines
+    mean_casualties_per_attack = dff_grouped['n_casualties'].sum()/dff_grouped['n_attacks'].sum()
+    max_attacks = dff_grouped['n_attacks'].max()
+    max_casualties = dff_grouped['n_casualties'].max()
+    mean_attacks = dff_grouped['n_attacks'].mean()
+    mean_casualties = dff_grouped['n_casualties'].mean()
     fig.update_layout(
-        shapes=[dict(
-            type='line',
-            x0=0,
-            y0=0,
-            x1=max_attacks,
-            y1=max_attacks*mean_casualties,
-            line=dict(
-                color='grey',
-                width=2, 
-                dash='dash'
+        shapes=[
+            dict(
+                type='line',
+                x0=0,
+                y0=0,
+                x1=max_attacks,
+                y1=max_attacks*mean_casualties_per_attack,
+                line=dict(
+                    color='grey',
+                    width=2, 
+                    dash='dash'
+                )
+            ),
+            dict(
+                type='line',
+                x0=0,
+                y0=mean_casualties,
+                x1=max_attacks,
+                y1=mean_casualties,
+                line=dict(
+                    color='grey',
+                    width=2, 
+                    dash='dash'
+                )
+            ),
+            dict(
+                type='line',
+                x0=mean_attacks,
+                y0=0,
+                x1=mean_attacks,
+                y1=max_casualties,
+                line=dict(
+                    color='grey',
+                    width=2, 
+                    dash='dash'
+                )
             )
-        )]
+        ]
     )
 
     # Update layout
@@ -1157,7 +1194,8 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
             ),
             showgrid=True, 
             gridcolor='lightgray', 
-            gridwidth=0.5),
+            gridwidth=0.5
+        ),
         yaxis=dict(
             title=dict(
                 text='Sum of casualties',
@@ -1170,8 +1208,8 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
         font=default.label_dict.value,
         showlegend=False,
         plot_bgcolor=default.plot_bgcolor.value,
-        width=500,
-        height=500
+        width=600,
+        height=600
     )
 
     return fig
