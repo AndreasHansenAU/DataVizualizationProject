@@ -479,7 +479,13 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                                     "Group: %{customdata[25]}<br>"
                                     "Attack type: %{customdata[15]}<br>"
                                     "Weapon type: %{customdata[18]}<br>"
-                                    "Target type: %{customdata[20]}<br>")
+                                    "Target type: %{customdata[20]}<br>",
+                      hoverlabel=dict(
+                          bgcolor=default.highlight_color.value,
+                          bordercolor=default.hover_bordercolor.value,
+                          font=default.hover_font_dict.value
+                      )
+    )
 
 
     # Update layout to add a title to the legend
@@ -821,11 +827,11 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
                 colorscale=hightlight_scale,
                 shape='hspline', # smooth curves rather than linear lines
             ),
-            hoveron='category',  # show hover info for one category only
-            hoverinfo=None, # enable hover
             labelfont=default.label_dict.value,
             tickfont=dict(color=default.font_color.value, family=default.font_type.value, size=10, weight=10),
-            sortpaths='forward'
+            sortpaths='forward',
+            hoveron='category',
+            hoverinfo='count'
         )
     )
 
@@ -1000,7 +1006,12 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
                               "Group: %{customdata[25]}<br>"
                               "Attack type: %{customdata[15]}<br>"
                               "Weapon type: %{customdata[18]}<br>"
-                              "Target type: %{customdata[20]}<br>"
+                              "Target type: %{customdata[20]}<br>",
+                hoverlabel=dict(
+                    bgcolor=highlight_scale[i][0],
+                    bordercolor=default.hover_bordercolor.value,
+                    font=default.hover_font_dict.value
+                )
             )
         )
     
@@ -1103,6 +1114,11 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
                 name="",
                 customdata=dff_grouped.loc[condition, ['gname']].to_numpy(),
                 hovertemplate="<b>%{customdata[0]}</b><br>",
+                hoverlabel=dict(
+                    bgcolor=highlight_scale[i][0],
+                    bordercolor=default.hover_bordercolor.value,
+                    font=default.hover_font_dict.value
+                )
             )
         )
 
