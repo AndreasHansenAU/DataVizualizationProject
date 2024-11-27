@@ -262,16 +262,14 @@ app.layout = html.Div([
                     style={'width': '45%'}
                 ),
 
-                html.Div(
-                    id='crossfilter-group-container',
-                    children=update_group_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max()),
-                    style={'padding': '10px'}
-                ),
-
-                html.Div(
-                    id='crossfilter-summary-container',
-                    children=update_summary_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max(), None, None, None, None),
-                    style={'padding': '10px'}
+                dcc.RadioItems(
+                    id='toggle-metric',
+                    options=[
+                        {'label': 'Show Number of Attacks', 'value': 'attacks'},
+                        {'label': 'Show Total Casualties', 'value': 'casualties'}
+                    ],
+                    value='attacks',
+                    style={'margin-top': '10px'}
                 )
             ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
 
@@ -291,7 +289,8 @@ app.layout = html.Div([
                     value=None,
                     placeholder='Show All Weapon Types',
                     multi=True,
-                    clearable=False
+                    clearable=False,
+                    style={'margin-top': '10px'}
                 ),
                 dcc.Dropdown(
                     id='crossfilter-targettype-dropdown',
@@ -299,36 +298,36 @@ app.layout = html.Div([
                     value=None,
                     placeholder='Show All Target Types',
                     multi=True,
-                    clearable=False
+                    clearable=False,
+                    style={'margin-top': '10px'}
                 ),
 
-                dcc.RadioItems(
-                    id='toggle-metric',
-                    options=[
-                        {'label': 'Show Number of Attacks', 'value': 'attacks'},
-                        {'label': 'Show Total Casualties', 'value': 'casualties'}
-                    ],
-                    value='attacks'
+                html.Div(
+                    id='crossfilter-group-container',
+                    children=update_group_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max()),
+                    style={'margin-top': '10px', 'padding': '0px'}
                 )
             ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
 
             # Column 3
             html.Div([
+                html.Div(
+                    id='crossfilter-summary-container',
+                    children=update_summary_dropdown(None, default.year_range.value, 0, df_terror['total_casualties'].max(), None, None, None, None),
+                ),
                 html.Button('Reset Selection', 
                     id='button-reset-selection', 
                     n_clicks=0, 
-                    style={'margin-left': '10px', 'font':default.font_type.value}),
+                    style={'margin-top': '10px', 'background-color':'white'}
+                ),
                 html.Div(
-                    id="info-container", 
-                    children=html.Div(
-                        id='info-box'
-                    ),
+                    id="info-box",
                     n_clicks=0,
-                    style={'width': '90%'}
+                    style={'margin-top': '10px', 'clear': 'both'}
                 )
             ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'})
         ], style={'display': 'flex', 'flex-direction': 'row'})
-    ], style={'background-color': default.highlight_color.value, 'padding': '20px', 'color': 'white'}),
+    ], style={'background-color': default.highlight_color.value, 'padding': '0px', 'color': 'white'}),
 
     # Main charts
     html.Div([
@@ -592,33 +591,12 @@ def update_map_state(relayoutData, clickData):
 
 
 ###############################################################################
-# toggle info box
-@callback(
-    Output('info-container', 'children'),
-    Input('info-container', 'n_clicks'),
-)
-def toggle_info_box(n_clicks):
-    if n_clicks is not None and n_clicks % 2 == 1:
-        return html.Div(id='info-box', style={
-                    'padding': '10px',
-                    'border': '1px solid black',
-                    'width': '90%',
-                    'height': '200px',
-                    'overflow-y': 'scroll'
-                })
-    else:  # Show mini box when clicked again
-        return html.Div(id='info-box', style={
-                    'padding': '10px',
-                    'border': '1px solid black',
-                    'width': '90%',
-                    'height': '70px',
-                })
-
 # update infobox
 @callback(
     Output('info-box', 'children'),
-    Input('global-clickData', 'data'))
-def update_info_box(clickData):
+    Input('global-clickData', 'data'),
+    Input('info-box', 'n_clicks'))
+def update_info_box(clickData, n_clicks):
     if clickData['data'] is None:
         return "Click on an attack to see details."
 
@@ -763,9 +741,19 @@ def update_info_box(clickData):
         box_content.append(html.Div([html.Br(), html.Strong('Summary of attack:'), html.Br(), html.Span(summary)]))
     box_content.append(html.Div([html.Br(), html.Strong("Source: "), html.Span(scite1)]))
 
-    # Return a formatted string to display in the info box
-    info_content = html.Div(children=box_content)
-    return info_content
+    # return info box
+    info_box = html.Div(
+        id='info-box', 
+        style={
+            'border': '0px',
+            'width': '100%',
+            'height': '100px',
+            'overflow-y': 'scroll'
+        },
+        children=box_content,
+        n_clicks=n_clicks
+    )
+    return info_box
 
 
 ###############################################################################
