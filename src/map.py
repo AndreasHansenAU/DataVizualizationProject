@@ -2,7 +2,7 @@ from utils.Jitter import *
 from utils.Utils import *
 from constants import default
 from dash import Dash, html, dcc, ctx, Input, Output, State, callback, no_update
-import dash_core_components as dbc
+import dash_bootstrap_components as dbc
 from flask_caching import Cache
 import pandas as pd
 import plotly.express as px
@@ -224,7 +224,7 @@ app.layout = html.Div([
 
     # Top blue box with title and filters in 3 columns
     html.Div([
-        html.H3("Global Terrorism", style={'color': 'white', 'text-align': 'center'}),
+        html.H3("Interaction with The Global Terrorism Database", style={'color': 'white', 'text-align': 'center'}),
         html.Div([
             # Column 1
             html.Div([
@@ -718,10 +718,28 @@ def update_info_box(clickData):
                        "display": "inline-block",
                        "marginRight": f"{default.related_size.value}px"}
 
+    criterion_colormap = {0:default.background_color.value, 1:default.selection_color.value}
+    criterion_info = {1:dict(value=crit1, symbol='➊', details=html.Div(['Indication that act is aimed at attaining a', html.Br(), 'political, economic, religious or social goal'])),
+                      2:dict(value=crit2, symbol='➋', details=html.Div(['Evidence of intention to coerce, intimidate', html.Br(), 'or convey message to larger audience(s)', html.Br(), 'other than the immediate victim(s).'])),
+                      3:dict(value=crit3, symbol='➌', details=html.Div(['Act is outside international humanitarian', html.Br(), 'law of legitimate warfare according', html.Br(), 'to the Geneva Convention 1949.']))}
     box_content = []
 
     # quick attack info
-    box_content.append(html.Div([html.Span(style=selection_style), html.Span(f"{day}-{month}-{year} {city}, {country} {flag}")]))
+    header = [html.Span(style=selection_style),
+              html.Span(f"{day}-{month}-{year} {city}, {country} {flag}")]
+    
+    for i in [1, 2, 3]:
+        crit_value = criterion_info[i]['value']
+        crit_symbol = criterion_info[i]['symbol']
+        crit_details = criterion_info[i]['details']
+        crit_color = criterion_colormap[crit_value]
+        spacing = 100 if i==1 else 30
+        header.append(html.Span(crit_symbol, id=f'crit{i}-symbol', style={'color':crit_color, 'font-size':'20px', 'cursor':'default', 'margin-left':f'{spacing}px'}))
+        header.append(dbc.Tooltip(crit_details, target=f'crit{i}-symbol', placement='bottom', style={'color':default.font_color.value, 'font-size':default.hover_font_size.value, 'font-family':default.font_type.value}))
+
+
+    box_content.append(html.Div(header))
+    
     if related is not None:
         n_related = len(get_related_ids(related)) - 1
         box_content.append(html.Div([html.Span(style=related_style), html.Span(f"{n_related} related attacks")]))
