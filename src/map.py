@@ -224,7 +224,7 @@ app.layout = html.Div([
 
     # Top blue box with title and filters in 3 columns
     html.Div([
-        html.H3("Interaction with The Global Terrorism Database", style={'color': 'white', 'text-align': 'center'}),
+        html.H3("Exploration of The Global Terrorism Database", style={'color': 'white', 'text-align': 'center'}),
         html.Div([
             # Column 1
             html.Div([
@@ -349,7 +349,7 @@ app.layout = html.Div([
         # Scatterplot
         html.Div([
             dcc.Graph(id='chart-scatter', clickData=None, hoverData=None)
-        ], style={'grid-area': 'scatterplot', 'margin-top':'-30px'}),
+        ], style={'grid-area': 'scatterplot', 'margin-top':'0px'}),
 
     ], style={
         'display': 'grid',
@@ -1153,47 +1153,42 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
 
     # add lines
     mean_casualties_per_attack = dff_grouped['n_casualties'].sum()/dff_grouped['n_attacks'].sum()
-    max_attacks = dff_grouped['n_attacks'].max()
     max_casualties = dff_grouped['n_casualties'].max()
-    mean_attacks = dff_grouped['n_attacks'].mean()
-    mean_casualties = dff_grouped['n_casualties'].mean()
+    x_stop = max_casualties/mean_casualties_per_attack
+    extension = 1.1
     fig.update_layout(
         shapes=[
             dict(
                 type='line',
                 x0=0,
                 y0=0,
-                x1=max_attacks,
-                y1=max_attacks*mean_casualties_per_attack,
+                x1=x_stop*extension,
+                y1=x_stop*mean_casualties_per_attack*extension,
                 line=dict(
                     color='grey',
                     width=2, 
                     dash='dash'
                 )
+            )
+        ],
+        annotations=[
+            dict(
+                x=x_stop*1.00,
+                y=x_stop*mean_casualties_per_attack*1.05,
+                text="Above average casualties",
+                showarrow=False,
+                font=default.hover_font_dict.value,
+                xanchor='right',
+                yanchor='bottom'
             ),
             dict(
-                type='line',
-                x0=0,
-                y0=mean_casualties,
-                x1=max_attacks,
-                y1=mean_casualties,
-                line=dict(
-                    color='grey',
-                    width=2, 
-                    dash='dash'
-                )
-            ),
-            dict(
-                type='line',
-                x0=mean_attacks,
-                y0=0,
-                x1=mean_attacks,
-                y1=max_casualties,
-                line=dict(
-                    color='grey',
-                    width=2, 
-                    dash='dash'
-                )
+                x=x_stop*extension,
+                y=x_stop*mean_casualties_per_attack*1.045,
+                text="Below average casualties",
+                showarrow=False,
+                font=default.hover_font_dict.value,
+                xanchor='left',
+                yanchor='top'
             )
         ]
     )
@@ -1201,10 +1196,10 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
     # Update layout
     fig.update_layout(
         title=dict(
-            text="Which groups causes most casualties?",
+            text="Which groups cause most casualties?",
             yref="container",
             yanchor="top",
-            y=0.95,
+            y=0.97,
             xref="paper",
             xanchor="center",
             x=0.5,
