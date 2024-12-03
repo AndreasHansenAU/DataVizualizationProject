@@ -494,12 +494,13 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
             text=title,
             yref="container",
             yanchor="top",
-            y=0.85,
+            y=0.96,
             xref="paper",
             xanchor="center",
             x=0.5,
             font=default.title_dict.value
         ),
+        margin=dict(l=0, r=0, t=40, b=45),
         coloraxis_colorbar=dict(
             title=dict(
                 text=colorbar_title,
@@ -861,14 +862,14 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
             text="How are attacks, weapons and targets related?",
             yref="container",
             yanchor="top",
-            y=0.9,
+            y=0.95,
             xref="paper",
             xanchor="center",
             x=0.5,
             font=default.title_dict.value
         ),
         font=default.label_dict.value,
-        margin=dict(l=150, r=100), # ensure labels can be read
+        margin=dict(l=150, r=100, t=70, b=0), # ensure labels can be read
         plot_bgcolor=default.plot_bgcolor.value,
         width=700,
         height=500
@@ -1044,12 +1045,13 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
             text="Which attacks have the highest number of casualties?",
             yref="container",
             yanchor="top",
-            y=0.9,
+            y=0.95,
             xref="paper",
             xanchor="center",
             x=0.5,
             font=default.title_dict.value
         ),
+        margin=dict(l=0, r=0, t=40, b=0),
         xaxis=dict(
             title=dict(
                 text='Number of casualties',
@@ -1199,12 +1201,13 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
             text="Which groups causes most casualties?",
             yref="container",
             yanchor="top",
-            y=0.9,
+            y=0.95,
             xref="paper",
             xanchor="center",
             x=0.5,
             font=default.title_dict.value
         ),
+        margin=dict(l=0, r=0, t=40, b=0),
         xaxis=dict(
             title=dict(
                 text='Number of attacks',
