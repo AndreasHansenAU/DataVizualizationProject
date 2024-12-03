@@ -330,38 +330,41 @@ app.layout = html.Div([
 
     # Main charts
     html.Div([
-        # Column 1
+        # Heatmap
         html.Div([
-            # heatmap
-            html.Div([
-                dcc.Store(id='map-state', data={'zoom': default.zoom.value, 'center': dict(lat=default.lat.value, lon=default.lon.value)}),
-                dcc.Graph(id='map-heatmap', hoverData=None, clickData=None)
-            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top'}),
+            dcc.Store(id='map-state', data={'zoom': default.zoom.value, 'center': dict(lat=default.lat.value, lon=default.lon.value)}),
+            dcc.Graph(id='map-heatmap', hoverData=None, clickData=None)
+        ], style={'grid-area': 'heatmap'}),
 
-            # parallel sets
-            html.Div([
-                dcc.Graph(id='chart-parallel-sets', clickData=None)
-            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '-50px', 'margin-left': '0px'}),
-        ], style={'display': 'flex', 'flex-direction': 'column', 'margin-bottom': '0px', 'width':'50%', 'min-width':'50%'}),
-        # end of column 1
-
-        # Column 2
+        # Parallel sets
         html.Div([
-            # beeswarm
-            html.Div([
-                dcc.Graph(id='chart-beeswarm', clickData=None, hoverData=None)
-            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '0px'}),
+            dcc.Graph(id='chart-parallel-sets', clickData=None)
+        ], style={'grid-area': 'parallel-sets'}),
 
-            # scatterplot
-            html.Div([
-                dcc.Graph(id='chart-scatter', clickData=None, hoverData=None)
-            ], style={'padding': '0px', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '0px'})
-        ], style={'display': 'flex', 'flex-direction': 'column', 
-                  'margin-top': '0px', 'width':'50%', 'min-width':'50%', 
-                  'background_color': default.plot_bgcolor.value})
-        # end of column 2
+        # Beeswarm
+        html.Div([
+            dcc.Graph(id='chart-beeswarm', clickData=None, hoverData=None)
+        ], style={'grid-area': 'beeswarm', 'margin-top':'-50px'}),
 
-    ], style={'display': 'flex', 'align-items': 'flex-start', 'margin-top': '5px'})
+        # Scatterplot
+        html.Div([
+            dcc.Graph(id='chart-scatter', clickData=None, hoverData=None)
+        ], style={'grid-area': 'scatterplot', 'margin-top':'-30px'}),
+
+    ], style={
+        'display': 'grid',
+        'grid-template-areas': '''
+            "heatmap parallel-sets"
+            "beeswarm scatterplot"
+        ''',
+        'grid-template-columns': '1fr 1fr',
+        'grid-template-rows': 'auto auto',
+        'gap': '0px',
+        'align-items': 'center',
+        'justify-items': 'center',
+        'width': '100%',
+        'padding': '0px'
+    })
 ])
 
 
@@ -869,7 +872,7 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
             font=default.title_dict.value
         ),
         font=default.label_dict.value,
-        margin=dict(l=150, r=100, t=70, b=0), # ensure labels can be read
+        margin=dict(l=150, r=100, t=70, b=10), # ensure labels can be read
         plot_bgcolor=default.plot_bgcolor.value,
         width=700,
         height=500
