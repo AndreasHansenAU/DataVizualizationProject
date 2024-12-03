@@ -344,7 +344,7 @@ app.layout = html.Div([
         # Beeswarm
         html.Div([
             dcc.Graph(id='chart-beeswarm', clickData=None, hoverData=None)
-        ], style={'grid-area': 'beeswarm', 'margin-top':'-50px'}),
+        ], style={'grid-area': 'beeswarm', 'margin-top':'-40px'}),
 
         # Scatterplot
         html.Div([
@@ -515,7 +515,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
             center=center,
             zoom=zoom
         ),
-        width=700,
+        width=900,
         height=500
     )
 
@@ -874,7 +874,7 @@ def update_chart_parallel_sets(year_range, casualty_lower, casualty_upper, attac
         font=default.label_dict.value,
         margin=dict(l=150, r=100, t=70, b=10), # ensure labels can be read
         plot_bgcolor=default.plot_bgcolor.value,
-        width=700,
+        width=900,
         height=500
     )
      
@@ -1077,7 +1077,7 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
         font=default.label_dict.value,
         showlegend=False,
         plot_bgcolor=default.plot_bgcolor.value,
-        width=700,
+        width=900,
         height=700
     )
 
@@ -1232,8 +1232,8 @@ def update_chart_scatter(year_range, casualty_lower, casualty_upper, attacktype,
         font=default.label_dict.value,
         showlegend=False,
         plot_bgcolor=default.plot_bgcolor.value,
-        width=600,
-        height=600
+        width=700,
+        height=700
     )
 
     return fig
