@@ -398,7 +398,7 @@ def update_global_clickdata(map_clickData, beeswarm_clickData, n_clicks):
 # update heatmap
 @callback(
     Output('map-heatmap', 'figure'),
-    State('map-state', 'data'), # can read state but can't be triggered by state change
+    State('map-state', 'data'),
     Input('global-clickData', 'data'),
     Input('crossfilter-year-slider', 'value'),
     Input('crossfilter-casualty-lower', 'value'),
@@ -432,14 +432,23 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
         colorbar_title = "Attacks"
         title = 'Where do attacks occur?'
 
-    # Ice with white color cut away
+    # Truncated ice
+    #color_scale = [
+    #    [0.0, "rgba(0, 0, 0, 0)"],
+    #    [0.01, "rgb(3, 5, 18)"],
+    #    [0.25, "rgb(52, 52, 108)"],
+    #    [0.5, "rgb(63, 112, 179)"],
+    #    [0.75, "rgb(106, 176, 202)"],
+    #    [1.0, "rgb(206, 237, 239)"]
+    #]
+    # reversed truncated ice scale
     color_scale = [
-        [0.0, "rgba(0, 0, 0, 0)"],
-        [0.01, "rgb(3, 5, 18)"],
-        [0.25, "rgb(52, 52, 108)"],
-        [0.5, "rgb(63, 112, 179)"],
-        [0.75, "rgb(106, 176, 202)"],
-        [1.0, "rgb(206, 237, 239)"]
+        [0.0, "rgb(120, 195, 225)"],
+        [0.01, "rgb(120, 195, 225)"],
+        [0.25, "rgb(90, 160, 195)"],
+        [0.5, "rgb(60, 125, 165)"],
+        [0.75, "rgb(30, 90, 135)"],
+        [1.00, "rgb(10, 50, 100)"]
     ]
 
     # ensure that map is drawn in same state prior to update
@@ -452,7 +461,6 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
             clicked_lat = clickData['data'][1]
             clicked_lon = clickData['data'][2]
             center = {'lat':clicked_lat, 'lon':clicked_lon}
-    
 
     fig = go.Figure()
     fig.add_trace(
@@ -465,7 +473,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
             zmin=0,
             zmax=max_density,
             colorscale=color_scale,
-                        colorbar=dict(
+            colorbar=dict(
                 title=colorbar_title,
                 tickvals=[0, 10, 20, 30, 40, 50],   # Define tick values
                 ticktext=["0", "10", "20", "30", "40", "50+"],  # Custom tick labels
@@ -475,7 +483,6 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
         )
     )
 
-    # update hover box
     fig.update_traces(customdata=dff[customdata_list],
                       # update hover box
                       hovertemplate="<b>%{customdata[3]}-%{customdata[4]}-%{customdata[5]} %{customdata[9]}, %{customdata[6]}</b><br>"
@@ -489,9 +496,7 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
                           font=default.hover_font_dict.value
                       )
     )
-
-
-    # Update layout to add a title to the legend
+    
     fig.update_layout(
         title=dict(
             text=title,
@@ -511,9 +516,9 @@ def update_map_heatmap(map_state, clickData, year_range, casualty_lower, casualt
             titleside="right",
         ),
         map=dict(
-            style="open-street-map",  # "carto-positron" or "satellite-streets"
+            style="light", # open-street-map
             center=center,
-            zoom=zoom
+            zoom=zoom,
         ),
         width=900,
         height=500
