@@ -28,7 +28,7 @@ class default(Enum):
     highlight_opacity = 0.8
     highlight_color = f'rgba(61, 134, 215, {highlight_opacity})' # blue
     highlight_color_group = f'rgba(80, 163, 21, {highlight_opacity})'
-    background_opacity = 0.3
+    background_opacity = 0.5
     background_color = f'rgba(214, 227, 254, {background_opacity})' # light blue
     background_color_group = f'rgba(186, 204, 181, {background_opacity})'
     marker_size = 10
