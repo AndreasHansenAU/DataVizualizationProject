@@ -153,83 +153,77 @@ app.layout = html.Div([
     # Top blue box with title and filters in 3 columns
     html.Div([
         html.H3("Exploration of The Global Terrorism Database", style={'color': 'white', 'text-align': 'center'}),
+        
         html.Div([
-            # Column 1
+            # Column 1 and 2
             html.Div([
-                dcc.RangeSlider(
-                    id='crossfilter-year-slider',
-                    min=df_terror['iyear'].min(),
-                    max=df_terror['iyear'].max(),
-                    step=None,
-                    value=default.year_range.value,
-                    marks={str(year): str(year) if year % 10 == 0 else '' for year in df_terror['iyear'].unique()},
-                    allowCross=False,
-                    dots=False,
-                    updatemode='mouseup',
-                    tooltip=dict(placement="top", 
-                                 always_visible=True),
-                    
-                ),
+                # Range Slider spans columns 1 and 2
+                html.Div([
+                    dcc.RangeSlider(
+                        id='crossfilter-year-slider',
+                        min=df_terror['iyear'].min(),
+                        max=df_terror['iyear'].max(),
+                        step=None,
+                        value=default.year_range.value,
+                        marks={str(year): str(year) if year % 10 == 0 else '' for year in df_terror['iyear'].unique()},
+                        allowCross=False,
+                        dots=False,
+                        updatemode='mouseup',
+                        tooltip=dict(placement="top", always_visible=True),
+                    ),
+                ], style={'padding': '0px', 'width': '100%', 'display': 'inline-block', 'vertical-align': 'top'}),
 
-                dcc.RadioItems(
-                    id='toggle-metric',
-                    options=[
-                        {'label': 'Show Number of Attacks', 'value': 'attacks'},
-                        {'label': 'Show Total Casualties', 'value': 'casualties'}
-                    ],
-                    value='attacks',
-                    style={'margin-top': '10px'}
-                )
-            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
+                # Column 1
+                html.Div([
+                    dcc.Dropdown(
+                        id='crossfilter-attacktype-dropdown',
+                        options=[{'label': i, 'value': i} for i in df_terror['attacktype1_txt'].unique()],
+                        value=None,
+                        placeholder='Show All Attack Types',
+                        multi=True,
+                        clearable=False
+                    ),
+                    dcc.Dropdown(
+                        id='crossfilter-weapontype-dropdown',
+                        options=[{'label': i, 'value': i} for i in df_terror['weaptype1_txt'].unique()],
+                        value=None,
+                        placeholder='Show All Weapon Types',
+                        multi=True,
+                        clearable=False,
+                        style={'margin-top': '10px'}
+                    ),
+                ], style={'padding': '10px', 'width': '48.2%', 'display': 'inline-block', 'vertical-align': 'top'}),
 
-            # Column 2
-            html.Div([
-                dcc.Dropdown(
-                    id='crossfilter-attacktype-dropdown',
-                    options=[{'label': i, 'value': i} for i in df_terror['attacktype1_txt'].unique()],
-                    value=None,
-                    placeholder='Show All Attack Types',
-                    multi=True,
-                    clearable=False
-                ),
-                dcc.Dropdown(
-                    id='crossfilter-weapontype-dropdown',
-                    options=[{'label': i, 'value': i} for i in df_terror['weaptype1_txt'].unique()],
-                    value=None,
-                    placeholder='Show All Weapon Types',
-                    multi=True,
-                    clearable=False,
-                    style={'margin-top': '10px'}
-                ),
-                dcc.Dropdown(
-                    id='crossfilter-targettype-dropdown',
-                    options=[{'label': i, 'value': i} for i in df_terror['targtype1_txt'].unique()],
-                    value=None,
-                    placeholder='Show All Target Types',
-                    multi=True,
-                    clearable=False,
-                    style={'margin-top': '10px'}
-                ),
-
-                html.Div(
-                    id='crossfilter-group-container',
-                    children=update_group_dropdown(None, default.year_range.value),
-                    style={'margin-top': '10px', 'padding': '0px'}
-                )
-            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
+                # Column 2
+                html.Div([
+                    dcc.Dropdown(
+                        id='crossfilter-targettype-dropdown',
+                        options=[{'label': i, 'value': i} for i in df_terror['targtype1_txt'].unique()],
+                        value=None,
+                        placeholder='Show All Target Types',
+                        multi=True,
+                        clearable=False
+                    ),
+                    html.Div(
+                        id='crossfilter-group-container',
+                        children=update_group_dropdown(None, default.year_range.value),
+                        style={'margin-top': '10px', 'padding': '0px'}
+                    )
+                ], style={'padding': '10px', 'width': '48.2%', 'display': 'inline-block', 'vertical-align': 'top'}),
+            ], style={'width': '66%', 'display': 'inline-block', 'vertical-align': 'top'}),
 
             # Column 3
             html.Div([
-                html.Button('Reset Selection', 
-                    id='button-reset-selection', 
-                    n_clicks=0, 
-                    style={'margin-top': '0px', 'background-color':'white'}
-                ),
+                html.Button('Reset Selection',
+                            id='button-reset-selection',
+                            n_clicks=0,
+                            style={'margin-top': '0px', 'background-color': 'white'}
+                            ),
                 html.Div(
                     id="info-box",
                     style={'margin-top': '10px', 'clear': 'both'}
                 )
-            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'})
+            ], style={'padding': '10px', 'width': '33%', 'display': 'inline-block'}),
         ], style={'display': 'flex', 'flex-direction': 'row'})
     ], style={'background-color': default.highlight_color.value, 'padding': '0px', 'color': 'white'}),
 
@@ -238,6 +232,17 @@ app.layout = html.Div([
         # Heatmap
         html.Div([
             dcc.Store(id='map-state', data={'zoom': default.zoom.value, 'center': dict(lat=default.lat.value, lon=default.lon.value)}),
+            dcc.RadioItems(
+                id='toggle-metric',
+                options=[
+                    {'label': 'Show Number of Attacks', 'value': 'attacks'},
+                    {'label': 'Show Total Casualties', 'value': 'casualties'}
+                ],
+                value='attacks',
+                inline=True,
+                style={'margin-top': '10px'},
+                labelStyle={'margin-right': '20px'}
+            ),
             dcc.Graph(id='map-heatmap', hoverData=None, clickData=None)
         ], style={'grid-area': 'heatmap'}),
 
@@ -249,12 +254,12 @@ app.layout = html.Div([
         # Beeswarm
         html.Div([
             dcc.Graph(id='chart-beeswarm', clickData=None, hoverData=None)
-        ], style={'grid-area': 'beeswarm', 'margin-top':'-40px'}),
+        ], style={'grid-area': 'beeswarm', 'margin-top': '-40px'}),
 
         # Scatterplot
         html.Div([
             dcc.Graph(id='chart-scatter', clickData=None, hoverData=None)
-        ], style={'grid-area': 'scatterplot', 'margin-top':'0px'}),
+        ], style={'grid-area': 'scatterplot', 'margin-top': '0px'}),
 
     ], style={
         'display': 'grid',
