@@ -11,7 +11,7 @@
     background-color: rgb(255, 255, 255, 0.7);
     height: 2px;
     border-radius: 1px;
-    margin-top: 2.5px;
+    margin-top: 1px;
 }
 
 /* Background for selected track */
@@ -19,7 +19,7 @@
     background-color: rgb(255, 255, 255, 1);
     height: 2px;
     border-radius: 1px;
-    margin-top: 2.5px;
+    margin-top: 1px;
 }
 
 
@@ -28,9 +28,9 @@
 #crossfilter-year-slider .rc-slider-handle {
     border: 0px solid rgba(255, 255, 255, 1); /* Border color of the handle */
     background-color: rgba(255, 255, 255, 1); /* Fill color of the handle */
-    width: 10px;               /* Width of the handle */
-    height: 10px;              /* Height of the handle */
-    margin-top: -2px;          /* Center handle vertically */
+    width: 16px;               /* Width of the handle */
+    height: 16px;              /* Height of the handle */
+    margin-top: -5.5px;          /* Center handle vertically */
     margin-left: -1.5px;
     border-radius: 50%;        /* Make handle circular */
 }
@@ -46,8 +46,8 @@
 #crossfilter-year-slider .rc-slider-dot {
     background-color: rgba(255, 255, 255, 0.7); /* Fill color of the dots */
     border: 0px solid rgba(255, 255, 255, 0.7); /* Border color of the dots */
-    width: 5px;               /* Width of the dots */
-    height: 5px;              /* Height of the dots */
+    width: 8px;               /* Width of the dots */
+    height: 8px;              /* Height of the dots */
     border-radius: 50%;        /* Make dots circular */
 }
 
