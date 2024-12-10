@@ -33,9 +33,10 @@ class default(Enum):
     background_color_group = f'rgba(186, 204, 181, {background_opacity})'
     marker_size = 10
 
-
     # plot
     plot_bgcolor = 'white'
+    gridline_color = 'lightgray'
+    gridline_width = 0.5
 
     # default states
     year_range = [2015, 2020]

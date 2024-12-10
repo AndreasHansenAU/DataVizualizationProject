@@ -948,14 +948,20 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
         ),
         margin=dict(l=0, r=0, t=40, b=0),
         xaxis=dict(
+            zeroline=True,
+            zerolinecolor=default.gridline_color.value,
+            zerolinewidth=default.gridline_width.value,
             title=dict(
                 text='Number of casualties',
                 font=default.label_dict.value
             ),
             showgrid=True, 
-            gridcolor='lightgray', 
-            gridwidth=0.5),
+            gridcolor=default.gridline_color.value, 
+            gridwidth=default.gridline_width.value),
         yaxis=dict(
+            zeroline=True,
+            zerolinecolor=default.gridline_color.value,
+            zerolinewidth=default.gridline_width.value,
             tickvals=list(category_to_y.values()),
             ticktext=list(category_to_y.keys()),
             title=dict(
@@ -963,8 +969,8 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
                 font=default.label_dict.value
             ),
             showgrid=True,
-            gridcolor='lightgray',
-            gridwidth=0.5
+            gridcolor=default.gridline_color.value,
+            gridwidth=default.gridline_width.value
         ),
         font=default.label_dict.value,
         showlegend=False,
@@ -1095,22 +1101,28 @@ def update_chart_scatter(year_range, attacktype, weapontype, targettype, group):
         ),
         margin=dict(l=0, r=0, t=40, b=0),
         xaxis=dict(
+            zeroline=True,
+            zerolinecolor=default.gridline_color.value,
+            zerolinewidth=default.gridline_width.value,
             title=dict(
                 text='Number of attacks',
                 font=default.label_dict.value
             ),
             showgrid=True, 
-            gridcolor='lightgray', 
-            gridwidth=0.5
+            gridcolor=default.gridline_color.value, 
+            gridwidth=default.gridline_width.value
         ),
         yaxis=dict(
+            zeroline=True,
+            zerolinecolor=default.gridline_color.value,
+            zerolinewidth=default.gridline_width.value,
             title=dict(
                 text='Sum of casualties',
                 font=default.label_dict.value
             ),
             showgrid=True,
-            gridcolor='lightgray',
-            gridwidth=0.5
+            gridcolor=default.gridline_color.value,
+            gridwidth=default.gridline_width.value
         ),
         font=default.label_dict.value,
         showlegend=False,
