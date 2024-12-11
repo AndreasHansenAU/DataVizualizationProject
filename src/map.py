@@ -44,7 +44,7 @@ def read_data_terror():
     df.loc[df['weaptype1_txt'].str.contains('Vehicle'), 'weaptype1_txt'] = 'Vehicle'
 
     # ensure 0 or None casualties can be plotted in heatmap
-    df['total_casualties_visualized'] = df['total_casualties'].replace(0, 1).fillna(1)
+    df['total_casualties_visualized'] = df['total_casualties'].replace(0, 1)
 
     return df
 
