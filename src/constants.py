@@ -37,6 +37,7 @@ class default(Enum):
     plot_bgcolor = 'white'
     gridline_color = 'lightgray'
     gridline_width = 0.5
+    redrawid = 'redraw'
 
     # default states
     year_range = [2015, 2020]

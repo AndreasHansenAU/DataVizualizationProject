@@ -936,6 +936,7 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
 
     # Update layout
     fig.update_layout(
+        uirevision=default.redrawid.value,
         title=dict(
             text="Which attacks have the highest number of casualties?",
             yref="container",
@@ -1051,6 +1052,7 @@ def update_chart_scatter(year_range, attacktype, weapontype, targettype, group):
     x_stop = max_casualties/mean_casualties_per_attack
     extension = 1.1
     fig.update_layout(
+        uirevision=default.redrawid.value,
         shapes=[
             dict(
                 type='line',
