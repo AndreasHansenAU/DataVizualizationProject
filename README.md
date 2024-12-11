@@ -59,7 +59,7 @@ In the heatmap, the user sees that almost all attacks occur in Great Britain and
 
 # Citations
 ```bibtex
-@online{GTD
+@online{GTD,
     title={Global Terrorism Database 1970 - 2020},
     author={START (National Consortium for the Study of Terrorism and Responses to Terrorism)},
     year={2022},
