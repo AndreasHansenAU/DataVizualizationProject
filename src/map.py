@@ -43,8 +43,8 @@ def read_data_terror():
     # simplify vehicle name
     df.loc[df['weaptype1_txt'].str.contains('Vehicle'), 'weaptype1_txt'] = 'Vehicle'
 
-    # ensure 0 casualties can be plotted in heatmap
-    df['total_casualties_visualized'] = df['total_casualties'].replace(0, 1)
+    # ensure 0 or None casualties can be plotted in heatmap
+    df['total_casualties_visualized'] = df['total_casualties'].replace(0, 1).fillna(1)
 
     return df
 
@@ -581,9 +581,9 @@ def update_info_box(clickData):
     motive = clickData['data'][28]
     
     # Casualties and injuries
-    nkill = clickData['data'][29]
+    nkill = 'Unknown' if clickData['data'][29] is None else clickData['data'][29]
     nkillter = clickData['data'][30]
-    nwound = clickData['data'][31]
+    nwound = 'Unknown' if clickData['data'][31] is None else clickData['data'][31]
     nwoundte = clickData['data'][32]
     
     # Property damage
@@ -911,6 +911,8 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
     # scatterplot of background, highlight, related and selection
     for i in [0, 1, 2, 3]:
         dff_condition = dff[dff['highlight'] == i]
+        scaling_factor = -0.1*dff['total_casualties'].max()
+        dff_condition['total_casualties'] = dff_condition['total_casualties'].fillna(scaling_factor)
         fig.add_trace(
             go.Scatter(
                 x=dff_condition['total_casualties'],
@@ -934,6 +936,13 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
         )
     
 
+    # Calculate the range for ticks
+    x_min = -0.1*dff['total_casualties'].max()  # Include negative placeholder
+    x_max = dff['total_casualties'].max()
+    tickvals = dynamic_ticks(0, x_max)  # Exclude the negative placeholder for the range
+    tickvals = np.insert(tickvals, 0, x_min)  # Add the negative placeholder
+    ticktext = ["Unknown" if val < 0 else f"{int(val)}" for val in tickvals]
+    
     # Update layout
     fig.update_layout(
         uirevision=default.redrawid.value,
@@ -949,6 +958,8 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
         ),
         margin=dict(l=0, r=0, t=40, b=0),
         xaxis=dict(
+            tickvals=tickvals,
+            ticktext=ticktext,
             zeroline=True,
             zerolinecolor=default.gridline_color.value,
             zerolinewidth=default.gridline_width.value,
@@ -977,10 +988,39 @@ def update_chart_beeswarm(clickData, year_range, attacktype, weapontype, targett
         showlegend=False,
         plot_bgcolor=default.plot_bgcolor.value,
         width=900,
-        height=700
+        height=700,
+        shapes=[
+            dict(
+                type="line",
+                x0=scaling_factor/2,
+                x1=scaling_factor/2,
+                y0=-0.05*dff['y_jittered'].max(),
+                y1=1.05*dff['y_jittered'].max(),
+                line=dict(color="black", width=2)
+            )
+        ]
     )
 
     return fig
+
+
+# Define a utility to compute "nice" intervals and number of ticks
+def dynamic_ticks(data_min, data_max, axis_length=900, target_tick_spacing=100):
+    # Estimate the number of ticks based on axis length
+    ideal_tick_count = max(5, min(8, axis_length // target_tick_spacing))  # Between 5 and 8 ticks
+
+    # Compute a "nice" interval
+    range_span = data_max - data_min
+    raw_interval = range_span / (ideal_tick_count - 1)
+    magnitude = 10 ** np.floor(np.log10(raw_interval))
+    nice_interval = np.ceil(raw_interval / magnitude) * magnitude
+
+    # Generate ticks
+    tick_min = np.floor(data_min / nice_interval) * nice_interval
+    tick_max = np.ceil(data_max / nice_interval) * nice_interval
+    ticks = np.arange(tick_min, tick_max + nice_interval, nice_interval)
+
+    return ticks
 
 
 ###############################################################################
