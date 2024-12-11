@@ -5,11 +5,9 @@ from dash import Dash, html, dcc, ctx, Input, Output, State, callback, no_update
 import dash_bootstrap_components as dbc
 from flask_caching import Cache
 import pandas as pd
-import plotly.express as px
 import webbrowser
 from threading import Timer
 import os
-from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 
 ###############################################################################

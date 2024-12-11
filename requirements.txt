@@ -1,0 +1,11 @@
+dash
+dash_bootstrap_components
+plotly
+pandas
+numpy
+flask_caching
+webbrowser
+threading
+os
+enum
+copy
